@@ -39,10 +39,8 @@ object CcPlugin extends AutoPlugin {
   override def trigger = allRequirements
 
   object autoImport {
-    // TODO: Check if there are different targets with the same name.
-    //       For example, Program("a.out") and Library("a.out") can coexist in this structure.
-    //       If that happens, ask the user to fix through an error message.
-    lazy val ccTargets    = settingKey[Set[Target]]("Targets")
+    lazy val ccTargets         = settingKey[Set[Target]]("Targets")
+    lazy val ccTargetsValidate = taskKey[Set[Target]]("Task to check if there is not duplicate in the targets.")
 
     lazy val cCompiler    = settingKey[String]("Command to compile C source files.")
     lazy val cFlags       = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the C compiler.") // We may want to use different flags for each source file.
@@ -136,9 +134,30 @@ object CcPlugin extends AutoPlugin {
     }).toSeq
   }
 
+  def raiseIfRedundant(targs: Set[Target]): Set[Target] = {
+    val names = targs.toList.map(_.name)
+    val redundant = names.diff(names.distinct).distinct
+    if (redundant.nonEmpty) {
+      throw new Exception("ccTargets includes multiple targets with the same name: " + redundant.mkString(", "))
+    }
+
+    targs
+  }
+
+  def pickTarget(targs: Set[Target], names: Seq[String], logger: ManagedLogger): Set[Target] = {
+    val invalidNames = names.filter(name => ! targs.map(_.name).contains(name))
+    logger.warn("Following targets in ccTargets do not exist: " + invalidNames.mkString(", "))
+
+    targs.filter(t => names.contains(t.name))
+  }
+
+
   override lazy val projectSettings = Seq(
     Compile / ccTargets := Set(),
     Test    / ccTargets := Set(),
+
+    Compile / ccTargetsValidate := { raiseIfRedundant((Compile / ccTargets).value) },
+    Test    / ccTargetsValidate := { raiseIfRedundant((Test    / ccTargets).value) },
 
     cCompiler   := "cc",
     cxxCompiler := "g++",
@@ -165,7 +184,7 @@ object CcPlugin extends AutoPlugin {
     // TODO: define similar tasks for C++ and Test configuration.
     Compile / cCompile := {
       val targetNames: Seq[String] = spaceDelimited("<args>").parsed
-      val compileTargets = (Compile / ccTargets).value.filter(t => targetNames.contains(t.name))
+      val compileTargets = pickTarget((Compile / ccTargetsValidate).value, targetNames, streams.value.log)
 
       compile(
         (Compile / cCompiler).value,
@@ -180,7 +199,7 @@ object CcPlugin extends AutoPlugin {
 
     Compile / ccLink := {
       val targetNames: Seq[String] = spaceDelimited("<args>").parsed
-      val linkTargets = (Compile / ccTargets).value.filter(t => targetNames.contains(t.name))
+      val linkTargets = pickTarget((Compile / ccTargetsValidate).value, targetNames, streams.value.log)
 
       link(
         (Compile / cCompiler).value,
