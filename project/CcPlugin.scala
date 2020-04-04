@@ -1,4 +1,4 @@
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
 
 import sbt.Keys._
 import sbt._
@@ -14,23 +14,23 @@ trait Target{
 }
 trait Source{val file: File}
 
-case class ProgramAndSource(val name: String, val file: File) extends Target with Source {
-  def and(file: File) = {this}
+case class ProgramAndSource(name: String, file: File) extends Target with Source {
+  def and(file: File) = this
 }
-case class LibraryAndSource(val name: String, val file: File) extends Target with Source {
-  def and(file: File) = {this}
+case class LibraryAndSource(name: String, file: File) extends Target with Source {
+  def and(file: File) = this
 }
-case class SharedLibraryAndSource(val name: String, val file: File) extends Target with Source {
-  def and(file: File) = {this}
+case class SharedLibraryAndSource(name: String, file: File) extends Target with Source {
+  def and(file: File) = this
 }
 
-case class Program(val name: String) extends Target { // Target which represents an executable.
+case class Program(name: String) extends Target { // Target which represents an executable.
   def and(file: File): ProgramAndSource = {ProgramAndSource(name, file)}
 }
-case class Library(val name: String) extends Target { // Target which represents a static library (*.a).
+case class Library(name: String) extends Target { // Target which represents a static library (*.a).
   def and(file: File): LibraryAndSource = {LibraryAndSource(name, file)}
 }
-case class SharedLibrary(val name: String) extends Target { // Target which represents a shared library (*.so).
+case class SharedLibrary(name: String) extends Target { // Target which represents a shared library (*.so).
   def and(file: File): SharedLibraryAndSource = {SharedLibraryAndSource(name, file)}
 }
 
@@ -39,7 +39,10 @@ object CcPlugin extends AutoPlugin {
   override def trigger = allRequirements
 
   object autoImport {
-    lazy val ccTargets = settingKey[Set[Target]]("Targets")
+    // TODO: Check if there are different targets with the same name.
+    //       For example, Program("a.out") and Library("a.out") can coexist in this structure.
+    //       If that happens, ask the user to fix through an error message.
+    lazy val ccTargets    = settingKey[Set[Target]]("Targets")
 
     lazy val cCompiler    = settingKey[String]("Command to compile C source files.")
     lazy val cFlags       = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the C compiler.") // We may want to use different flags for each source file.
@@ -47,19 +50,18 @@ object CcPlugin extends AutoPlugin {
     lazy val cSourceFilesDynamic = taskKey[Map[Target,Seq[File]]]("Path of C source files (dynamically defined).")
 
     lazy val cCompile     = inputKey[Seq[File]]("Input task to compile C source files for a specific output.")
-    lazy val cCompileAll  = taskKey[Seq[File]]("Task to compile C source files for all the targets.") // TODO: implement
 
     lazy val cxxCompiler    = settingKey[String]("Command to compile C++ source files.")
     lazy val cxxFlags       = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the C++ compiler.")
     lazy val cxxSourceFiles = settingKey[Map[Target,Seq[File]]]("Path of C++ source files.")
     lazy val cxxSourceFilesDynamic = taskKey[Map[Target,Seq[File]]]("Path of C++ source files (dynamically defined).")
 
+    lazy val ccArchiveCommand = settingKey[String]("Command to archive object files.")
+
     lazy val ldFlags = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the compiler when linking.")
+    lazy val ccLink    = inputKey[Seq[File]]("Input task to link object files and generate executable programs, static libraries and shared libraries.")
 
     lazy val ccSourceObjectMap = taskKey[Map[(Configuration, Target, File), File]]("Mapping from source files to object files.")
-
-    lazy val ccMakeProgram    = inputKey[Seq[File]]("Input task to link object files and make executable programs.")
-    lazy val ccMakeProgramAll = taskKey[Seq[File]]("Task to make all executable programs.") // TODO: implement
   }
   import autoImport._
 
@@ -101,20 +103,27 @@ object CcPlugin extends AutoPlugin {
     objs
   }
 
-  def makeProgram(compiler: String,
-                  flags: Map[Target,Seq[String]],
-                  config: Configuration,
-                  targs : Set[Program],
-                  sources: Map[Target,Seq[File]],
-                  srcObjMap: Map[(Configuration, Target, File), File],
-                  logger: ManagedLogger,
-                  outputDir: File,
-                 ): Seq[File] = {
+  def link(compiler: String,
+           archiver: String,
+           flags: Map[Target,Seq[String]],
+           config: Configuration,
+           targs : Set[Target],
+           sources: Map[Target,Seq[File]],
+           srcObjMap: Map[(Configuration, Target, File), File],
+           logger: ManagedLogger,
+           outputDir: File,
+          ): Seq[File] = {
     targs.map( targ => {
       val objs = sources.getOrElse(targ, Seq()).map(srcObjMap(config, targ, _))
       val ldflags = Try(flags(targ)).getOrElse(Seq())
       val output = outputDir / targ.name
-      val cmd: Seq[String] = Seq(compiler, "-o", output.toString) ++ objs.map(_.toString) ++ ldflags
+
+      val cmd: Seq[String] = targ match {
+        case Program(_) => Seq(compiler, "-o", output.toString) ++ objs.map(_.toString) ++ ldflags
+        case Library(_) => Seq(archiver, "cr", output.toString) ++ objs.map(_.toString) ++ ldflags
+        case SharedLibrary(_) => Seq(compiler, "-shared", "-o", output.toString) ++ objs.map(_.toString) ++ ldflags
+      }
+
       val p = Process(cmd)
       logger.info(p.toString)
 
@@ -133,6 +142,7 @@ object CcPlugin extends AutoPlugin {
 
     cCompiler   := "cc",
     cxxCompiler := "g++",
+    ccArchiveCommand := "ar",
 
     Compile / cFlags   := Map(),
     Test    / cFlags   := Map(),
@@ -168,15 +178,16 @@ object CcPlugin extends AutoPlugin {
       )
     },
 
-    Compile / ccMakeProgram := {
+    Compile / ccLink := {
       val targetNames: Seq[String] = spaceDelimited("<args>").parsed
-      val programTargets: Set[Program] = (Compile / ccTargets).value.filter(t => targetNames.contains(t.name) && (t.isInstanceOf[Program])).map(t => Program(t.name))
+      val linkTargets = (Compile / ccTargets).value.filter(t => targetNames.contains(t.name))
 
-      makeProgram(
+      link(
         (Compile / cCompiler).value,
+        (Compile / ccArchiveCommand).value,
         (Compile / ldFlags).value,
         Compile,
-        programTargets,
+        linkTargets,
         (Compile / cSourceFilesDynamic).value,
         ccSourceObjectMap.value,
         streams.value.log,
@@ -204,7 +215,7 @@ object CcPlugin extends AutoPlugin {
         testCSources,
         testCxxSources).flatten.map { case (config, targ, src) =>
         val obj: File = if (isDescendent(baseDirectory.value, src)) {
-          cacheDirectory / config.name / targ.name / ((baseDirectory.value.toPath.relativize(src.toPath)).toString + ".o")
+          cacheDirectory / config.name / targ.name / (baseDirectory.value.toPath.relativize(src.toPath).toString + ".o")
         } else {
           val dirHash = f"${src.getParent.hashCode}%08x"
           cacheDirectory / config.name / targ.name / ("_" + dirHash) / (src.getName + ".o")
