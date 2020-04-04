@@ -57,7 +57,8 @@ object CcPlugin extends AutoPlugin {
     lazy val ccArchiveCommand = settingKey[String]("Command to archive object files.")
 
     lazy val ldFlags = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the compiler when linking.")
-    lazy val ccLink    = inputKey[Seq[File]]("Input task to link object files and generate executable programs, static libraries and shared libraries.")
+    lazy val ccLinkOnly    = inputKey[Seq[File]]("Input task to link object files and generate executable programs, static libraries and shared libraries. Does not compile dependent C source files.")
+    lazy val ccLink        = inputKey[Seq[File]]("Input task to link object files and generate executable programs, static libraries and shared libraries.")
 
     lazy val ccSourceObjectMap = taskKey[Map[(Configuration, Target, File), File]]("Mapping from source files to object files.")
   }
@@ -71,7 +72,7 @@ object CcPlugin extends AutoPlugin {
     file.toPath.startsWith(directory.toPath.toAbsolutePath)
   }
 
-  def compile(compiler: String,
+  def cccompile(compiler: String,
               flags: Map[Target,Seq[String]],
               config: Configuration,
               targs : Set[Target],
@@ -146,9 +147,13 @@ object CcPlugin extends AutoPlugin {
 
   def pickTarget(targs: Set[Target], names: Seq[String], logger: ManagedLogger): Set[Target] = {
     val invalidNames = names.filter(name => ! targs.map(_.name).contains(name))
-    logger.warn("Following targets in ccTargets do not exist: " + invalidNames.mkString(", "))
+    if (invalidNames.nonEmpty)
+      logger.warn("Following targets in ccTargets do not exist: " + invalidNames.mkString(", "))
 
-    targs.filter(t => names.contains(t.name))
+    if (names.isEmpty)
+      targs
+    else
+      targs.filter(t => names.contains(t.name))
   }
 
 
@@ -186,7 +191,9 @@ object CcPlugin extends AutoPlugin {
       val targetNames: Seq[String] = spaceDelimited("<args>").parsed
       val compileTargets = pickTarget((Compile / ccTargetsValidate).value, targetNames, streams.value.log)
 
-      compile(
+      println("cCompile: " + targetNames.mkString(" "))
+
+      cccompile(
         (Compile / cCompiler).value,
         (Compile / cFlags).value,
         Compile,
@@ -197,7 +204,7 @@ object CcPlugin extends AutoPlugin {
       )
     },
 
-    Compile / ccLink := {
+    Compile / ccLinkOnly := {
       val targetNames: Seq[String] = spaceDelimited("<args>").parsed
       val linkTargets = pickTarget((Compile / ccTargetsValidate).value, targetNames, streams.value.log)
 
@@ -213,6 +220,17 @@ object CcPlugin extends AutoPlugin {
         streams.value.cacheDirectory,
       )
     },
+
+    Compile / ccLink := Def.inputTaskDyn {
+      val args: Seq[String] = spaceDelimited("<args>").parsed
+      Def.taskDyn {
+        (Compile / cCompile).toTask(" " + args.mkString(" ")).value
+        (Compile / ccLinkOnly).toTask(" " + args.mkString(" "))
+      }
+    }.evaluated,
+
+
+    (Compile / compile) := ((Compile / compile) dependsOn (Compile / ccLink).toTask("")).value,
 
     ccSourceObjectMap := {
       val compileCSources   = ((Compile / cSourceFilesDynamic  ).value.map{ case (targ, files) => files.map((Compile, targ, _)) } toList).flatten
@@ -249,4 +267,5 @@ object CcPlugin extends AutoPlugin {
       ret
     }
   )
+
 }
