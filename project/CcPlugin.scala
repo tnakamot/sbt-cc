@@ -47,14 +47,19 @@ object CcPlugin extends AutoPlugin {
     lazy val cSourceFilesDynamic = taskKey[Map[Target,Seq[File]]]("Path of C source files (dynamically defined).")
 
     lazy val cCompile     = inputKey[Seq[File]]("Input task to compile C source files for a specific output.")
-    lazy val cCompileAll  = taskKey[Seq[File]]("Task to compile C source files for all the targets.")
+    lazy val cCompileAll  = taskKey[Seq[File]]("Task to compile C source files for all the targets.") // TODO: implement
 
     lazy val cxxCompiler    = settingKey[String]("Command to compile C++ source files.")
     lazy val cxxFlags       = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the C++ compiler.")
     lazy val cxxSourceFiles = settingKey[Map[Target,Seq[File]]]("Path of C++ source files.")
     lazy val cxxSourceFilesDynamic = taskKey[Map[Target,Seq[File]]]("Path of C++ source files (dynamically defined).")
 
+    lazy val ldFlags = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the compiler when linking.")
+
     lazy val ccSourceObjectMap = taskKey[Map[(Configuration, Target, File), File]]("Mapping from source files to object files.")
+
+    lazy val ccMakeProgram    = inputKey[Seq[File]]("Input task to link object files and make executable programs.")
+    lazy val ccMakeProgramAll = taskKey[Seq[File]]("Task to make all executable programs.") // TODO: implement
   }
   import autoImport._
 
@@ -78,10 +83,14 @@ object CcPlugin extends AutoPlugin {
     for (targ <- targs) {
       for (source <- sources.getOrElse(targ, Seq())) {
         val obj = srcObjMap((config, targ, source))
-        val srcFlags = flags.getOrElse(targ and source, Try(flags(targ)).getOrElse(Seq()))
-        val cmd: Seq[String] = Seq(compiler, "-c", source.toString, "-o", obj.toString) ++ srcFlags
+        val compileFlags = flags.getOrElse(targ and source, Try(flags(targ)).getOrElse(Seq()))
+        val cmd: Seq[String] = Seq(compiler, "-c", source.toString, "-o", obj.toString) ++ compileFlags
         val p = Process(cmd)
         logger.info(p.toString)
+
+        // TODO: compile only when the object file is older than the source file.
+
+        // TODO: compile if the dependent header files are newer than the source file.
 
         Files.createDirectories(obj.toPath.getParent)
         Process(cmd).!
@@ -90,6 +99,32 @@ object CcPlugin extends AutoPlugin {
       }
     }
     objs
+  }
+
+  def makeProgram(compiler: String,
+                  flags: Map[Target,Seq[String]],
+                  config: Configuration,
+                  targs : Set[Program],
+                  sources: Map[Target,Seq[File]],
+                  srcObjMap: Map[(Configuration, Target, File), File],
+                  logger: ManagedLogger,
+                  outputDir: File,
+                 ): Seq[File] = {
+    targs.map( targ => {
+      val objs = sources.getOrElse(targ, Seq()).map(srcObjMap(config, targ, _))
+      val ldflags = Try(flags(targ)).getOrElse(Seq())
+      val output = outputDir / targ.name
+      val cmd: Seq[String] = Seq(compiler, "-o", output.toString) ++ objs.map(_.toString) ++ ldflags
+      val p = Process(cmd)
+      logger.info(p.toString)
+
+      // TODO: link only when the executable program is older than the object files.
+
+      Files.createDirectories(outputDir.toPath)
+      Process(cmd).!
+
+      output
+    }).toSeq
   }
 
   override lazy val projectSettings = Seq(
@@ -114,6 +149,10 @@ object CcPlugin extends AutoPlugin {
     Compile / cxxSourceFilesDynamic := { (Compile / cxxSourceFiles).value },
     Test    / cxxSourceFilesDynamic := { (Test    / cxxSourceFiles).value },
 
+    Compile / ldFlags := Map(),
+    Test    / ldFlags := Map(),
+
+    // TODO: define similar tasks for C++ and Test configuration.
     Compile / cCompile := {
       val targetNames: Seq[String] = spaceDelimited("<args>").parsed
       val compileTargets = (Compile / ccTargets).value.filter(t => targetNames.contains(t.name))
@@ -126,6 +165,22 @@ object CcPlugin extends AutoPlugin {
         (Compile / cSourceFilesDynamic).value,
         ccSourceObjectMap.value,
         streams.value.log,
+      )
+    },
+
+    Compile / ccMakeProgram := {
+      val targetNames: Seq[String] = spaceDelimited("<args>").parsed
+      val programTargets: Set[Program] = (Compile / ccTargets).value.filter(t => targetNames.contains(t.name) && (t.isInstanceOf[Program])).map(t => Program(t.name))
+
+      makeProgram(
+        (Compile / cCompiler).value,
+        (Compile / ldFlags).value,
+        Compile,
+        programTargets,
+        (Compile / cSourceFilesDynamic).value,
+        ccSourceObjectMap.value,
+        streams.value.log,
+        streams.value.cacheDirectory,
       )
     },
 
