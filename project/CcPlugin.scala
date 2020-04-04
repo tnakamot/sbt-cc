@@ -40,7 +40,6 @@ object CcPlugin extends AutoPlugin {
 
   object autoImport {
     lazy val ccTargets         = settingKey[Set[Target]]("Targets")
-    lazy val ccTargetsValidate = taskKey[Set[Target]]("Task to check if there is not duplicate in the targets.")
 
     lazy val cCompiler    = settingKey[String]("Command to compile C source files.")
     lazy val cFlags       = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the C compiler.") // We may want to use different flags for each source file.
@@ -61,6 +60,7 @@ object CcPlugin extends AutoPlugin {
     lazy val ccLink        = inputKey[Seq[File]]("Input task to link object files and generate executable programs, static libraries and shared libraries.")
 
     lazy val ccSourceObjectMap = taskKey[Map[(Configuration, Target, File), File]]("Mapping from source files to object files.")
+    lazy val ccTargetMap       = taskKey[Map[Target,File]]("Mapping from target names to the output paths of the targets.")
   }
   import autoImport._
 
@@ -110,12 +110,12 @@ object CcPlugin extends AutoPlugin {
            sources: Map[Target,Seq[File]],
            srcObjMap: Map[(Configuration, Target, File), File],
            logger: ManagedLogger,
-           outputDir: File,
+           targetMap: Map[Target, File],
           ): Seq[File] = {
     targs.map( targ => {
       val objs = sources.getOrElse(targ, Seq()).map(srcObjMap(config, targ, _))
       val ldflags = Try(flags(targ)).getOrElse(Seq())
-      val output = outputDir / targ.name
+      val output = targetMap(targ)
 
       val cmd: Seq[String] = targ match {
         case Program(_) => Seq(compiler, "-o", output.toString) ++ objs.map(_.toString) ++ ldflags
@@ -128,21 +128,11 @@ object CcPlugin extends AutoPlugin {
 
       // TODO: link only when the executable program is older than the object files.
 
-      Files.createDirectories(outputDir.toPath)
+      Files.createDirectories(output.getParentFile.toPath)
       Process(cmd).!
 
       output
     }).toSeq
-  }
-
-  def raiseIfRedundant(targs: Set[Target]): Set[Target] = {
-    val names = targs.toList.map(_.name)
-    val redundant = names.diff(names.distinct).distinct
-    if (redundant.nonEmpty) {
-      throw new Exception("ccTargets includes multiple targets with the same name: " + redundant.mkString(", "))
-    }
-
-    targs
   }
 
   def pickTarget(targs: Set[Target], names: Seq[String], logger: ManagedLogger): Set[Target] = {
@@ -156,13 +146,9 @@ object CcPlugin extends AutoPlugin {
       targs.filter(t => names.contains(t.name))
   }
 
-
   override lazy val projectSettings = Seq(
     Compile / ccTargets := Set(),
     Test    / ccTargets := Set(),
-
-    Compile / ccTargetsValidate := { raiseIfRedundant((Compile / ccTargets).value) },
-    Test    / ccTargetsValidate := { raiseIfRedundant((Test    / ccTargets).value) },
 
     cCompiler   := "cc",
     cxxCompiler := "g++",
@@ -189,7 +175,7 @@ object CcPlugin extends AutoPlugin {
     // TODO: define similar tasks for C++ and Test configuration.
     Compile / cCompile := {
       val targetNames: Seq[String] = spaceDelimited("<args>").parsed
-      val compileTargets = pickTarget((Compile / ccTargetsValidate).value, targetNames, streams.value.log)
+      val compileTargets = pickTarget((Compile / ccTargets).value, targetNames, streams.value.log)
 
       println("cCompile: " + targetNames.mkString(" "))
 
@@ -206,7 +192,7 @@ object CcPlugin extends AutoPlugin {
 
     Compile / ccLinkOnly := {
       val targetNames: Seq[String] = spaceDelimited("<args>").parsed
-      val linkTargets = pickTarget((Compile / ccTargetsValidate).value, targetNames, streams.value.log)
+      val linkTargets = pickTarget((Compile / ccTargets).value, targetNames, streams.value.log)
 
       link(
         (Compile / cCompiler).value,
@@ -217,7 +203,7 @@ object CcPlugin extends AutoPlugin {
         (Compile / cSourceFilesDynamic).value,
         ccSourceObjectMap.value,
         streams.value.log,
-        streams.value.cacheDirectory,
+        ccTargetMap.value,
       )
     },
 
@@ -258,14 +244,20 @@ object CcPlugin extends AutoPlugin {
           cacheDirectory / config.name / targ.name / ("_" + dirHash) / (src.getName + ".o")
 
           // TODO: By any chance the generated file name may conflict with another.
-          //       If conflict, change the dirHash to another.
+          //       If conflict, change the dirHash to another or raise an Exception.
         }
 
         ((config, targ, src), obj)
       }.toMap
 
       ret
-    }
+    },
+
+    ccTargetMap := {
+      val cacheDirectory = streams.value.cacheDirectory
+      (Compile / ccTargets).value.map(t => t -> (cacheDirectory / Compile.name / t.getClass.getName / t.name)).toMap ++
+        (Test  / ccTargets).value.map(t => t -> (cacheDirectory / Test.name    / t.getClass.getName / t.name)).toMap
+    },
   )
 
 }
