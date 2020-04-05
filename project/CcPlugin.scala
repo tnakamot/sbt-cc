@@ -64,6 +64,8 @@ object CcPlugin extends AutoPlugin {
     lazy val ccTargetMap       = taskKey[Map[Target,File]]("Mapping from target names to the output paths of the targets.")
 
     lazy val ccRunProgram = settingKey[Option[Program]]("Program to launch when 'run' command is issued.")
+
+    lazy val ccDummyTask = taskKey[Unit]("Dummy task which does nothing.")
   }
   import autoImport._
 
@@ -178,12 +180,12 @@ object CcPlugin extends AutoPlugin {
     Compile / ldFlags := Map(),
     Test    / ldFlags := Map(),
 
+    ccDummyTask := {},
+
     // TODO: define similar tasks for C++ and Test configuration.
     Compile / cCompile := {
       val targetNames: Seq[String] = spaceDelimited("<args>").parsed
       val compileTargets = pickTarget((Compile / ccTargets).value, targetNames, streams.value.log)
-
-      println("cCompile: " + targetNames.mkString(" "))
 
       cccompile(
         (Compile / cCompiler).value,
@@ -223,21 +225,25 @@ object CcPlugin extends AutoPlugin {
 
     (Compile / compile) := ((Compile / compile) dependsOn (Compile / ccLink).toTask("")).value,
 
-    (Compile / run)     := {
+    (Compile / run)     := Def.inputTaskDyn {
       val args: Seq[String] = spaceDelimited("<args>").parsed
       val program: Program = (Compile / ccRunProgram).value match {
         case Some(p) => p
         case None => throw new Exception("ccRunProgram is not defined.")
       }
 
-      // TODO: compile and  make the program first here.
+      Def.taskDyn {
+        // Compile and make the executable before run.
+        (Compile / ccLink).toTask(" " + program.name).value
 
-      val programPath = ccTargetMap.value(program)
-      val process = Process(Seq(programPath.toString) ++ args)
-      streams.value.log.info(process.toString)
+        val programPath = ccTargetMap.value(program)
+        val process = Process(Seq(programPath.toString) ++ args)
+        streams.value.log.info(process.toString)
+        process.!
 
-      process.!
-    },
+        Compile / ccDummyTask
+      }
+    }.evaluated,
 
     ccSourceObjectMap := {
       val compileCSources   = ((Compile / cSourceFilesDynamic  ).value.map{ case (targ, files) => files.map((Compile, targ, _)) } toList).flatten
