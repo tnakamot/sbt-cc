@@ -1,6 +1,6 @@
 import scala.collection.immutable.ListSet
 
-ThisBuild / name         := "compile-c-flags"
+ThisBuild / name         := "multi-execs"
 ThisBuild / version      := "0.1"
 ThisBuild / scalaVersion := "2.13.1"
 
@@ -8,7 +8,7 @@ val programA = Executable("programA")
 val programB = Executable("programB")
 val programC = Executable("programC")
 
-lazy val compileCFlags = (project in file("."))
+lazy val multiExecs = (project in file("."))
   .enablePlugins(CcPlugin)
   .settings(
     Compile / ccTargets := ListSet(programA, programB, programC),
