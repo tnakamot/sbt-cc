@@ -35,7 +35,7 @@ CxxPlugin supports multiple targets to generate from one class. Each target
 has a type and a name. For example, the line below in `build.sbt` defines
 `hello` as a target with `Program` type and the name of "hello".
 
-    val hello = Program("hello")
+    val helloExe = Program("hello")
 
 Below is the list of available target types.
 
@@ -49,7 +49,7 @@ be finally used as the file name of the target.
 To tell CxxPlugin to generate an executable "hello", set `ccTargets` setting as
 shown below:
 
-    Compile / ccTargets := ListSet(hello),
+    Compile / ccTargets := ListSet(helloExe),
 
 `ccTargets` is defined as `ListSet` which allows you to generate multiple targets.
 In this example project, there is only one executable for simplicity.
@@ -62,7 +62,7 @@ for each target. In this example, there is only one executable target, so the
 setting is very simple as shown below: 
 
     Compile / cSources  := Map(
-      hello -> Seq(
+      helloExe -> Seq(
         baseDirectory.value / "hello.c",
         baseDirectory.value / "hello_util.c"
       )
