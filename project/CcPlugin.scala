@@ -378,13 +378,16 @@ object CcPlugin extends AutoPlugin {
 
     runExecutable := Def.inputTaskDyn {
       val cmdAndArgs: Seq[String] = spaceDelimited("<args>").parsed
-      val cmd: String = cmdAndArgs.head
+      val cmd: String = Try(cmdAndArgs.head).getOrElse("")
+      if (cmd.isEmpty)
+        throw new Exception("No executable name was specified.")
+
       val executable: Executable = Executable(cmd)
       val args: Seq[String] = cmdAndArgs.tail
 
-      if (!ccTargets.value.contains(executable)) {
+      if (!ccTargets.value.contains(executable))
         throw new Exception("Executable target \"" + cmd + "\" is not defined.")
-      }
+
 
       Def.taskDyn {
         // Compile and make the executable before run.

@@ -12,16 +12,18 @@ lazy val compileCFlags = (project in file("."))
   .enablePlugins(CcPlugin)
   .settings(
     Compile / ccTargets := ListSet(programA, programB, programC),
+    Compile / ccRunExecutable := Some(programB),
 
     // ------------------------------------------------------------
     // This is the fallback settings. These flags will be used if
-    // cFlags are not defined explicitly for the target.
+    // cFlags/ldFlags are not defined explicitly for the target.
     // ------------------------------------------------------------
     Compile / cFlags := (Compile / cFlags).value.withDefaultValue( Seq(
       "-Wall", "-Werror",
       "-DPROGRAM_NAME=\"" + name.value + "\"",
       "-DVERSION=\"" + version.value +"\"",
-      )),
+    )),
+    Compile / ldFlags := (Compile / ldFlags).value.withDefaultValue( Seq( "-lm" ) ),
 
     // ------------------------------------------------------------
     // Compiler settings for Program A
@@ -41,6 +43,7 @@ lazy val compileCFlags = (project in file("."))
     Compile / cFlags ++= Map(
       programB -> Seq( "-DPROGRAM_NAME=\"Program B\"", "-DVERSION=\"0.99.0\"" ),
     ),
+    Compile / ldFlags ++= Map( programB -> Seq("-lm", "-lpthread") ),
 
     // -------------------------------------------
     // Compiler settings for Program C
