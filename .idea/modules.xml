@@ -2,11 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/multiExecs.iml" filepath="$PROJECT_DIR$/.idea/modules/multiExecs.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/sbt-cc.iml" filepath="$PROJECT_DIR$/.idea/modules/sbt-cc.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/sbt-cc-build.iml" filepath="$PROJECT_DIR$/.idea/modules/sbt-cc-build.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/simpleC.iml" filepath="$PROJECT_DIR$/.idea/modules/simpleC.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/simpleCxx.iml" filepath="$PROJECT_DIR$/.idea/modules/simpleCxx.iml" />
     </modules>
   </component>
 </project>

@@ -8,15 +8,15 @@ lazy val root = (project in file("."))
   .settings(
     name    := "sbt-cc",
     version := "0.1",
-    organization := "com.github.nakamot",
+    organization := "com.github.tnakamot",
     scalaVersion := "2.12.10",
     sbtPlugin    := true,
     sbtVersion   := "1.3.9"
   )
 
-// List of example projects which show how to use CxxPlugin.
+// List of example projects.
+/*
 lazy val simpleC    = project in file("examples/simple-c")
 lazy val multiExecs = project in file("examples/multi-execs")
 lazy val simpleCxx  = project in file("examples/simple-cxx")
-
-
+*/

@@ -1,1 +1,0 @@
-addSbtPlugin("com.github.nakamot" % "sbt-cc" % "0.1")
