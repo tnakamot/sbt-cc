@@ -12,7 +12,7 @@ lazy val simpleC = (project in file("."))
   .enablePlugins(CcPlugin)
   .settings(
     Compile / ccTargets := ListSet(hello, hello_a, hello_so),
-    Compile / cSourceFiles := Map(
+    Compile / cSources := Map(
       hello    -> Seq( baseDirectory.value / "hello.c" ),
       hello_a  -> Seq( baseDirectory.value / "hello.c" ),
       hello_so -> Seq( baseDirectory.value / "hello.c" )

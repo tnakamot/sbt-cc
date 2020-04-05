@@ -44,15 +44,15 @@ object CcPlugin extends AutoPlugin {
 
     lazy val cCompiler    = settingKey[String]("Command to compile C source files.")
     lazy val cFlags       = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the C compiler.") // We may want to use different flags for each source file.
-    lazy val cSourceFiles = settingKey[Map[Target,Seq[File]]]("Path of C source files.")
-    lazy val cSourceFilesDynamic = taskKey[Map[Target,Seq[File]]]("Path of C source files (dynamically defined).")
+    lazy val cSources     = settingKey[Map[Target,Seq[File]]]("Path of C source files.")
+    lazy val cSourceFiles = taskKey[Map[Target,Seq[File]]]("Path of C source files (dynamically defined).")
 
     lazy val cCompile     = inputKey[Seq[File]]("Input task to compile C source files for a specific output.")
 
     lazy val cxxCompiler    = settingKey[String]("Command to compile C++ source files.")
     lazy val cxxFlags       = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the C++ compiler.")
-    lazy val cxxSourceFiles = settingKey[Map[Target,Seq[File]]]("Path of C++ source files.")
-    lazy val cxxSourceFilesDynamic = taskKey[Map[Target,Seq[File]]]("Path of C++ source files (dynamically defined).")
+    lazy val cxxSources     = settingKey[Map[Target,Seq[File]]]("Path of C++ source files.")
+    lazy val cxxSourceFiles = taskKey[Map[Target,Seq[File]]]("Path of C++ source files (dynamically defined).")
 
     lazy val ccArchiveCommand = settingKey[String]("Command to archive object files.")
 
@@ -173,15 +173,15 @@ object CcPlugin extends AutoPlugin {
     Compile / cxxFlags := Map(),
     Test    / cxxFlags := Map(),
 
-    Compile / cSourceFiles   := Map(),
-    Test    / cSourceFiles   := Map(),
-    Compile / cxxSourceFiles := Map(),
-    Test    / cxxSourceFiles := Map(),
+    Compile / cSources   := Map(),
+    Test    / cSources   := Map(),
+    Compile / cxxSources := Map(),
+    Test    / cxxSources := Map(),
 
-    Compile / cSourceFilesDynamic   := { (Compile / cSourceFiles  ).value },
-    Test    / cSourceFilesDynamic   := { (Test    / cSourceFiles  ).value },
-    Compile / cxxSourceFilesDynamic := { (Compile / cxxSourceFiles).value },
-    Test    / cxxSourceFilesDynamic := { (Test    / cxxSourceFiles).value },
+    Compile / cSourceFiles   := { (Compile / cSources  ).value },
+    Test    / cSourceFiles   := { (Test    / cSources  ).value },
+    Compile / cxxSourceFiles := { (Compile / cxxSources).value },
+    Test    / cxxSourceFiles := { (Test    / cxxSources).value },
 
     Compile / ldFlags := Map(),
     Test    / ldFlags := Map(),
@@ -198,7 +198,7 @@ object CcPlugin extends AutoPlugin {
         (Compile / cFlags).value,
         Compile,
         compileTargets,
-        (Compile / cSourceFilesDynamic).value,
+        (Compile / cSourceFiles).value,
         ccSourceObjectMap.value,
         streams.value.log,
       )
@@ -214,7 +214,7 @@ object CcPlugin extends AutoPlugin {
         (Compile / ldFlags).value,
         Compile,
         linkTargets,
-        (Compile / cSourceFilesDynamic).value,
+        (Compile / cSourceFiles).value,
         ccSourceObjectMap.value,
         streams.value.log,
         ccTargetMap.value,
@@ -252,10 +252,10 @@ object CcPlugin extends AutoPlugin {
     }.evaluated,
 
     ccSourceObjectMap := {
-      val compileCSources   = ((Compile / cSourceFilesDynamic  ).value.map{ case (targ, files) => files.map((Compile, targ, _)) } toList).flatten
-      val compileCxxSources = ((Compile / cxxSourceFilesDynamic).value.map{ case (targ, files) => files.map((Compile, targ, _)) } toList).flatten
-      val testCSources      = ((Test    / cSourceFilesDynamic  ).value.map{ case (targ, files) => files.map((Test   , targ, _)) } toList).flatten
-      val testCxxSources    = ((Test    / cxxSourceFilesDynamic).value.map{ case (targ, files) => files.map((Test   , targ, _)) } toList).flatten
+      val compileCSources   = ((Compile / cSourceFiles  ).value.map{ case (targ, files) => files.map((Compile, targ, _)) } toList).flatten
+      val compileCxxSources = ((Compile / cxxSourceFiles).value.map{ case (targ, files) => files.map((Compile, targ, _)) } toList).flatten
+      val testCSources      = ((Test    / cSourceFiles  ).value.map{ case (targ, files) => files.map((Test   , targ, _)) } toList).flatten
+      val testCxxSources    = ((Test    / cxxSourceFiles).value.map{ case (targ, files) => files.map((Test   , targ, _)) } toList).flatten
 
       if (compileCSources.exists(compileCxxSources.contains)) {
         throw new Exception("(Compile / cSourceFilesDynamic) and (Compile in cxxSourceFilesDynamic) have common source files for the same target.")
@@ -266,10 +266,9 @@ object CcPlugin extends AutoPlugin {
       }
 
       val cacheDirectory = streams.value.cacheDirectory
-      val ret = Seq(compileCSources,
-        compileCxxSources,
-        testCSources,
-        testCxxSources).flatten.map { case (config, targ, src) =>
+      val ret = Seq(compileCSources, compileCxxSources, testCSources, testCxxSources)
+        .flatten.map { case (config, targ, src) =>
+
         val obj: File = if (isDescendent(baseDirectory.value, src)) {
           cacheDirectory / config.name / targ.name / (baseDirectory.value.toPath.relativize(src.toPath).toString + ".o")
         } else {
