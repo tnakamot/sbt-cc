@@ -17,6 +17,7 @@ to go through all the examples below in this order:
 
 * [simple-c](examples/simple-c/README.md): the simplest C project
 * [multi-execs](examples/multi-execs/README.md): multiple executable targets in one project
+* [simple-cxx](examples/simple-cxx/README.md): a simple C++ project
 
 ## TODO
 
@@ -25,6 +26,5 @@ to go through all the examples below in this order:
 * make an example of how to dynamically add source files
 * make an example of static library and shared library
 * make an example of how to package the executables and libraries using Universal plugin.
-* make an example of C++  
 * make an example of mixture of C and C++
 * make an example of test

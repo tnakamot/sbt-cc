@@ -6,6 +6,7 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/sbt-cxx.iml" filepath="$PROJECT_DIR$/.idea/modules/sbt-cxx.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/sbt-cxx-build.iml" filepath="$PROJECT_DIR$/.idea/modules/sbt-cxx-build.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/simpleC.iml" filepath="$PROJECT_DIR$/.idea/modules/simpleC.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/simpleCxx.iml" filepath="$PROJECT_DIR$/.idea/modules/simpleCxx.iml" />
     </modules>
   </component>
 </project>

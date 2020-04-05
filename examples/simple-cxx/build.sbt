@@ -6,14 +6,16 @@ ThisBuild / scalaVersion := "2.13.1"
 
 val helloExe = Executable("hello")
 
-lazy val simpleC = (project in file("."))
+lazy val simpleCxx = (project in file("."))
   .enablePlugins(CcPlugin)
   .settings(
     Compile / ccTargets := ListSet(helloExe),
-    Compile / cSources  := Map(
+    Compile / cxxSources  := Map(
       helloExe -> Seq(
-        baseDirectory.value / "hello.c",
-        baseDirectory.value / "hello_util.c"
+        baseDirectory.value / "hello.cxx",
       )
+    ),
+    Compile / cxxFlags ++= Map(
+      helloExe -> Seq( "-std=c++11" )
     ),
   )

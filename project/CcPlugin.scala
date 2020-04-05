@@ -61,6 +61,11 @@ object CcPlugin extends AutoPlugin {
     lazy val cxxIncludes    = settingKey[Map[Target,Seq[File]]]("Directories to search C++ header files.")
     lazy val cxxIncludeDirectories = taskKey[Map[Target,Seq[File]]]("Directories to search C++ header files (dynamically defined.")
 
+    lazy val cxxCompile     = inputKey[Seq[File]]("Input task to compile C++ source files for specific output(s).")
+    lazy val cxxCompileForExecutables = taskKey[Seq[File]]("Task to compile C++ source files for all executables.")
+    lazy val cxxCompileForLibraries = taskKey[Seq[File]]("Task to compile C++ source files for all executables.")
+    lazy val cxxCompileForSharedLibraries = taskKey[Seq[File]]("Task to compile C++ source files for all executables.")
+
     lazy val ccArchiveCommand = settingKey[String]("Command to archive object files.")
 
     lazy val ldFlags = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the compiler when linking.")
@@ -195,7 +200,6 @@ object CcPlugin extends AutoPlugin {
 
     ccDummyTask := {},
 
-    // TODO: define similar tasks for C++ and Test configuration.
     cCompile := {
       val targetNames: Seq[String] = spaceDelimited("<args>").parsed
       val compileTargets = pickTarget(ccTargets.value, targetNames, streams.value.log)
@@ -251,17 +255,72 @@ object CcPlugin extends AutoPlugin {
       )
     },
 
+    cxxCompile := {
+      val targetNames: Seq[String] = spaceDelimited("<args>").parsed
+      val compileTargets = pickTarget(ccTargets.value, targetNames, streams.value.log)
+
+      cccompile(
+        cxxCompiler.value,
+        cxxFlags.value,
+        configuration.value,
+        compileTargets,
+        cxxSourceFiles.value,
+        cxxIncludeDirectories.value,
+        ccSourceObjectMap.value,
+        streams.value.log,
+      )
+    },
+
+    cxxCompileForExecutables := {
+      cccompile(
+        cxxCompiler.value,
+        cxxFlags.value,
+        configuration.value,
+        ccTargets.value.filter(t => t.isInstanceOf[Executable]),
+        cxxSourceFiles.value,
+        cxxIncludeDirectories.value,
+        ccSourceObjectMap.value,
+        streams.value.log,
+      )
+    },
+
+    cxxCompileForLibraries := {
+      cccompile(
+        cxxCompiler.value,
+        cxxFlags.value,
+        configuration.value,
+        ccTargets.value.filter(t => t.isInstanceOf[Library]),
+        cxxSourceFiles.value,
+        cxxIncludeDirectories.value,
+        ccSourceObjectMap.value,
+        streams.value.log,
+      )
+    },
+
+    cxxCompileForSharedLibraries := {
+      cccompile(
+        cxxCompiler.value,
+        cxxFlags.value,
+        configuration.value,
+        ccTargets.value.filter(t => t.isInstanceOf[SharedLibrary]),
+        cxxSourceFiles.value,
+        cxxIncludeDirectories.value,
+        ccSourceObjectMap.value,
+        streams.value.log,
+      )
+    },
+
     ccLinkOnly := {
       val targetNames: Seq[String] = spaceDelimited("<args>").parsed
       val linkTargets = pickTarget(ccTargets.value, targetNames, streams.value.log)
 
       link(
-        cCompiler.value,
+        cxxCompiler.value,
         ccArchiveCommand.value,
         ldFlags.value,
         configuration.value,
         linkTargets,
-        cSourceFiles.value,
+        cSourceFiles.value ++ cxxSourceFiles.value,
         ccSourceObjectMap.value,
         streams.value.log,
         ccTargetMap.value,
@@ -270,12 +329,12 @@ object CcPlugin extends AutoPlugin {
 
     ccLinkOnlyExecutables := {
       link(
-        cCompiler.value,
+        cxxCompiler.value,
         ccArchiveCommand.value,
         ldFlags.value,
         configuration.value,
         ccTargets.value.filter(t => t.isInstanceOf[Executable]),
-        cSourceFiles.value,
+        cSourceFiles.value ++ cxxSourceFiles.value,
         ccSourceObjectMap.value,
         streams.value.log,
         ccTargetMap.value,
@@ -284,12 +343,12 @@ object CcPlugin extends AutoPlugin {
 
     ccLinkOnlyLibraries := {
       link(
-        cCompiler.value,
+        cxxCompiler.value,
         ccArchiveCommand.value,
         ldFlags.value,
         configuration.value,
         ccTargets.value.filter(t => t.isInstanceOf[Library]),
-        cSourceFiles.value,
+        cSourceFiles.value ++ cxxSourceFiles.value,
         ccSourceObjectMap.value,
         streams.value.log,
         ccTargetMap.value,
@@ -298,12 +357,12 @@ object CcPlugin extends AutoPlugin {
 
     ccLinkOnlySharedLibraries := {
       link(
-        cCompiler.value,
+        cxxCompiler.value,
         ccArchiveCommand.value,
         ldFlags.value,
         configuration.value,
         ccTargets.value.filter(t => t.isInstanceOf[SharedLibrary]),
-        cSourceFiles.value,
+        cSourceFiles.value ++ cxxSourceFiles.value,
         ccSourceObjectMap.value,
         streams.value.log,
         ccTargetMap.value,
@@ -314,13 +373,14 @@ object CcPlugin extends AutoPlugin {
       val args: Seq[String] = spaceDelimited("<args>").parsed
       Def.taskDyn {
         cCompile.toTask(" " + args.mkString(" ")).value
+        cxxCompile.toTask(" " + args.mkString(" ")).value
         ccLinkOnly.toTask(" " + args.mkString(" "))
       }
     }.evaluated,
 
-    ccLinkExecutables := Def.sequential(cCompileForExecutables, ccLinkOnlyExecutables).value,
-    ccLinkLibraries := Def.sequential(cCompileForLibraries, ccLinkOnlyLibraries).value,
-    ccLinkSharedLibraries := Def.sequential(cCompileForSharedLibraries, ccLinkOnlySharedLibraries).value,
+    ccLinkExecutables     := Def.sequential(cCompileForExecutables    , cxxCompileForExecutables    , ccLinkOnlyExecutables    ).value,
+    ccLinkLibraries       := Def.sequential(cCompileForLibraries      , cxxCompileForLibraries      , ccLinkOnlyLibraries      ).value,
+    ccLinkSharedLibraries := Def.sequential(cCompileForSharedLibraries, cxxCompileForSharedLibraries, ccLinkOnlySharedLibraries).value,
 
     ccSourceObjectMap := {
       val csrcs   = (cSourceFiles.value.map{ case (targ, files) => files.map((configuration.value, targ, _)) } toList).flatten
