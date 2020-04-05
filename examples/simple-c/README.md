@@ -14,15 +14,15 @@ one executable file.
 
 The command below compiles C source files and generate an executable.
 
-    sbt compile
+    $ sbt compile
 
 The command below runs the generated executable.
 
-    sbt run
+    $ sbt run
     
 You can provide command line arguments to the executable when launching.
 
-    sbt run arg1 arg2
+    $ sbt run arg1 arg2
 
 ## Description of build.sbt
 
@@ -70,3 +70,4 @@ setting is very simple as shown below:
 
 This setting basically says `hello.c` and `hello_util.c` need to be compiled
 and linked to generate the "hello" executable.
+
