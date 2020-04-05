@@ -230,6 +230,8 @@ object CcPlugin extends AutoPlugin {
         case None => throw new Exception("ccRunProgram is not defined.")
       }
 
+      // TODO: compile and  make the program first here.
+
       val programPath = ccTargetMap.value(program)
       val process = Process(Seq(programPath.toString) ++ args)
       streams.value.log.info(process.toString)
