@@ -5,6 +5,7 @@ import sbt._
 import complete.DefaultParsers._
 import sbt.internal.util.ManagedLogger
 
+import scala.collection.immutable.ListSet
 import scala.sys.process._
 import scala.util.Try
 
@@ -39,7 +40,7 @@ object CcPlugin extends AutoPlugin {
   override def trigger = allRequirements
 
   object autoImport {
-    lazy val ccTargets         = settingKey[Set[Target]]("Targets")
+    lazy val ccTargets         = settingKey[ListSet[Target]]("Targets")
 
     lazy val cCompiler    = settingKey[String]("Command to compile C source files.")
     lazy val cFlags       = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the C compiler.") // We may want to use different flags for each source file.
@@ -61,6 +62,8 @@ object CcPlugin extends AutoPlugin {
 
     lazy val ccSourceObjectMap = taskKey[Map[(Configuration, Target, File), File]]("Mapping from source files to object files.")
     lazy val ccTargetMap       = taskKey[Map[Target,File]]("Mapping from target names to the output paths of the targets.")
+
+    lazy val ccRunProgram = settingKey[Option[Program]]("Program to launch when 'run' command is issued.")
   }
   import autoImport._
 
@@ -94,7 +97,7 @@ object CcPlugin extends AutoPlugin {
         // TODO: compile if the dependent header files are newer than the source file.
 
         Files.createDirectories(obj.toPath.getParent)
-        Process(cmd).!
+        p.!
 
         objs ++= List(obj)
       }
@@ -129,7 +132,7 @@ object CcPlugin extends AutoPlugin {
       // TODO: link only when the executable program is older than the object files.
 
       Files.createDirectories(output.getParentFile.toPath)
-      Process(cmd).!
+      p.!
 
       output
     }).toSeq
@@ -147,8 +150,11 @@ object CcPlugin extends AutoPlugin {
   }
 
   override lazy val projectSettings = Seq(
-    Compile / ccTargets := Set(),
-    Test    / ccTargets := Set(),
+    Compile / ccTargets := ListSet(),
+    Test    / ccTargets := ListSet(),
+
+    Compile / ccRunProgram := Try(Some((Compile / ccTargets).value.filter(t => t.isInstanceOf[Program]).map(t => Program(t.name)).last)).getOrElse(None),
+    Test    / ccRunProgram := Try(Some((Test    / ccTargets).value.filter(t => t.isInstanceOf[Program]).map(t => Program(t.name)).last)).getOrElse(None),
 
     cCompiler   := "cc",
     cxxCompiler := "g++",
@@ -215,8 +221,21 @@ object CcPlugin extends AutoPlugin {
       }
     }.evaluated,
 
-
     (Compile / compile) := ((Compile / compile) dependsOn (Compile / ccLink).toTask("")).value,
+
+    (Compile / run)     := {
+      val args: Seq[String] = spaceDelimited("<args>").parsed
+      val program: Program = (Compile / ccRunProgram).value match {
+        case Some(p) => p
+        case None => throw new Exception("ccRunProgram is not defined.")
+      }
+
+      val programPath = ccTargetMap.value(program)
+      val process = Process(Seq(programPath.toString) ++ args)
+      streams.value.log.info(process.toString)
+
+      process.!
+    },
 
     ccSourceObjectMap := {
       val compileCSources   = ((Compile / cSourceFilesDynamic  ).value.map{ case (targ, files) => files.map((Compile, targ, _)) } toList).flatten
