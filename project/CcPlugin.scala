@@ -77,6 +77,7 @@ object CcPlugin extends AutoPlugin {
     lazy val ccTargetMap       = taskKey[Map[Target,File]]("Mapping from target names to the output paths of the targets.")
 
     lazy val ccRunExecutable = settingKey[Option[Executable]]("Executable to launch when 'run' command is issued.")
+    lazy val runExecutable   = inputKey[Unit]("Task to run an executable.")
 
     lazy val ccDummyTask = taskKey[Unit]("Dummy task which does nothing.")
   }
@@ -360,6 +361,29 @@ object CcPlugin extends AutoPlugin {
       val executable: Executable = ccRunExecutable.value match {
         case Some(p) => p
         case None => throw new Exception("ccRunExecutable is not defined.")
+      }
+
+      Def.taskDyn {
+        // Compile and make the executable before run.
+        ccLink.toTask(" " + executable.name).value
+
+        val executablePath = ccTargetMap.value(executable)
+        val process = Process(Seq(executablePath.toString) ++ args)
+        streams.value.log.info(process.toString)
+        process.!
+
+        ccDummyTask
+      }
+    }.evaluated,
+
+    runExecutable := Def.inputTaskDyn {
+      val cmdAndArgs: Seq[String] = spaceDelimited("<args>").parsed
+      val cmd: String = cmdAndArgs.head
+      val executable: Executable = Executable(cmd)
+      val args: Seq[String] = cmdAndArgs.tail
+
+      if (!ccTargets.value.contains(executable)) {
+        throw new Exception("Executable target \"" + cmd + "\" is not defined.")
       }
 
       Def.taskDyn {
