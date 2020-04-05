@@ -33,13 +33,13 @@ can be written for a simple C program project.
 
 CcPlugin supports multiple targets to generate from one class. Each target
 has a type and a name. For example, the line below in `build.sbt` defines
-`hello` as a target with `Program` type and the name of "hello".
+`hello` as a target with `Executable` type and the name of "hello".
 
-    val helloExe = Program("hello")
+    val helloExe = Executable("hello")
 
 Below is the list of available target types.
 
- * `Program`: an executable (e.g.`Program("hello")`).
+ * `Executable`: an executable (e.g.`Executable("hello")`).
  * `Library`: an archive or a static library. Typically, the file name ends with `.a` on Linux platform (e.g. `Library("hello.a")`).
  * `SharedLibrary`: a shared library. Typically, the file name ends with `.so` on Linux platform (e.g. `SharedLibrary("hello.so")`.
 

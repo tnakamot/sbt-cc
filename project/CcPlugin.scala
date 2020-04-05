@@ -15,7 +15,7 @@ trait Target{
 }
 trait Source{val file: File}
 
-case class ProgramAndSource(name: String, file: File) extends Target with Source {
+case class ExecutableAndSource(name: String, file: File) extends Target with Source {
   def and(file: File) = this
 }
 case class LibraryAndSource(name: String, file: File) extends Target with Source {
@@ -25,8 +25,8 @@ case class SharedLibraryAndSource(name: String, file: File) extends Target with 
   def and(file: File) = this
 }
 
-case class Program(name: String) extends Target { // Target which represents an executable.
-  def and(file: File): ProgramAndSource = {ProgramAndSource(name, file)}
+case class Executable(name: String) extends Target { // Target which represents an executable.
+  def and(file: File): ExecutableAndSource = {ExecutableAndSource(name, file)}
 }
 case class Library(name: String) extends Target { // Target which represents a static library (*.a).
   def and(file: File): LibraryAndSource = {LibraryAndSource(name, file)}
@@ -46,24 +46,37 @@ object CcPlugin extends AutoPlugin {
     lazy val cFlags       = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the C compiler.")
     lazy val cSources     = settingKey[Map[Target,Seq[File]]]("Path of C source files.")
     lazy val cSourceFiles = taskKey[Map[Target,Seq[File]]]("Path of C source files (dynamically defined).")
+    lazy val cIncludes    = settingKey[Map[Target,Seq[File]]]("Directories to search C header files.")
+    lazy val cIncludeDirectories = taskKey[Map[Target,Seq[File]]]("Directories to search C header files (dynamically defined.")
 
-    lazy val cCompile     = inputKey[Seq[File]]("Input task to compile C source files for a specific output.")
+    lazy val cCompile     = inputKey[Seq[File]]("Input task to compile C source files for specific output(s).")
+    lazy val cCompileForExecutables = taskKey[Seq[File]]("Task to compile C source files for all executables.")
+    lazy val cCompileForLibraries = taskKey[Seq[File]]("Task to compile C source files for all executables.")
+    lazy val cCompileForSharedLibraries = taskKey[Seq[File]]("Task to compile C source files for all executables.")
 
     lazy val cxxCompiler    = settingKey[String]("Command to compile C++ source files.")
     lazy val cxxFlags       = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the C++ compiler.")
     lazy val cxxSources     = settingKey[Map[Target,Seq[File]]]("Path of C++ source files.")
     lazy val cxxSourceFiles = taskKey[Map[Target,Seq[File]]]("Path of C++ source files (dynamically defined).")
+    lazy val cxxIncludes    = settingKey[Map[Target,Seq[File]]]("Directories to search C++ header files.")
+    lazy val cxxIncludeDirectories = taskKey[Map[Target,Seq[File]]]("Directories to search C++ header files (dynamically defined.")
 
     lazy val ccArchiveCommand = settingKey[String]("Command to archive object files.")
 
     lazy val ldFlags = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the compiler when linking.")
-    lazy val ccLinkOnly    = inputKey[Seq[File]]("Input task to link object files and generate executable programs, static libraries and shared libraries. Does not compile dependent C source files.")
-    lazy val ccLink        = inputKey[Seq[File]]("Input task to link object files and generate executable programs, static libraries and shared libraries.")
+    lazy val ccLinkOnly    = inputKey[Seq[File]]("Input task to link object files and generate executables, static libraries and shared libraries. Does not compile dependent C source files.")
+    lazy val ccLinkOnlyExecutables        = taskKey[Seq[File]]("Task to link object files and generate all executables. Does not compile dependent C source files.")
+    lazy val ccLinkOnlyLibraries       = taskKey[Seq[File]]("Task to link object files and generate all static libraries. Does not compile dependent C source files.")
+    lazy val ccLinkOnlySharedLibraries = taskKey[Seq[File]]("Task to link object files and generate all shared libraries. Does not compile dependent C source files.")
+    lazy val ccLink        = inputKey[Seq[File]]("Input task to link object files and generate executables, static libraries and shared libraries.")
+    lazy val ccLinkExecutables = taskKey[Seq[File]]("Task to link object files and generate all executables.")
+    lazy val ccLinkLibraries       = taskKey[Seq[File]]("Task to link object files and all static libraries.")
+    lazy val ccLinkSharedLibraries = taskKey[Seq[File]]("Task to link object files and all shared libraries.")
 
     lazy val ccSourceObjectMap = taskKey[Map[(Configuration, Target, File), File]]("Mapping from source files to object files.")
     lazy val ccTargetMap       = taskKey[Map[Target,File]]("Mapping from target names to the output paths of the targets.")
 
-    lazy val ccRunProgram = settingKey[Option[Program]]("Program to launch when 'run' command is issued.")
+    lazy val ccRunExecutable = settingKey[Option[Executable]]("Executable to launch when 'run' command is issued.")
 
     lazy val ccDummyTask = taskKey[Unit]("Dummy task which does nothing.")
   }
@@ -82,6 +95,7 @@ object CcPlugin extends AutoPlugin {
               config: Configuration,
               targs : Set[Target],
               sources: Map[Target,Seq[File]],
+              includes: Map[Target,Seq[File]],
               srcObjMap: Map[(Configuration, Target, File), File],
               logger: ManagedLogger
              ): Seq[File] = {
@@ -90,7 +104,8 @@ object CcPlugin extends AutoPlugin {
       for (source <- sources.getOrElse(targ, Seq())) {
         val obj = srcObjMap((config, targ, source))
         val compileFlags = flags.getOrElse(targ and source, Try(flags(targ)).getOrElse(Seq()))
-        val cmd: Seq[String] = Seq(compiler, "-c", source.toString, "-o", obj.toString) ++ compileFlags
+        val includeDirs  = includes.getOrElse(targ and source, Try(includes(targ)).getOrElse(Seq()))
+        val cmd: Seq[String] = Seq(compiler, "-c", source.toString, "-o", obj.toString) ++ includeDirs.map(d => "-I" + d.toString) ++ compileFlags
         val p = Process(cmd)
 
         // compile only when the object file is older than the source file.
@@ -99,10 +114,9 @@ object CcPlugin extends AutoPlugin {
           Files.createDirectories(obj.toPath.getParent)
           p.!!
         } else {
-          logger.debug("Skip comiling " + source.toString)
+          // TODO: compile if the dependent header files are newer than the object file.
+          logger.debug("Skip compiling " + source.toString)
         }
-
-        // TODO: compile if the dependent header files are newer than the source file.
 
         objs ++= List(obj)
       }
@@ -128,7 +142,7 @@ object CcPlugin extends AutoPlugin {
       // link only when the target is older than any of the object files.
       if (objs.exists(obj => output.lastModified <= obj.lastModified)) {
         val cmd: Seq[String] = targ match {
-          case Program(_) => Seq(compiler, "-o", output.toString) ++ objs.map(_.toString) ++ ldflags
+          case Executable(_) => Seq(compiler, "-o", output.toString) ++ objs.map(_.toString) ++ ldflags
           case Library(_) => Seq(archiver, "cr", output.toString) ++ objs.map(_.toString) ++ ldflags
           case SharedLibrary(_) => Seq(compiler, "-shared", "-o", output.toString) ++ objs.map(_.toString) ++ ldflags
         }
@@ -159,17 +173,21 @@ object CcPlugin extends AutoPlugin {
 
   lazy val baseCcSettings: Seq[Def.Setting[_]] = Seq(
     ccTargets    := ListSet(),
-    ccRunProgram := Try(Some(ccTargets.value.filter(t => t.isInstanceOf[Program]).map(t => Program(t.name)).last)).getOrElse(None),
+    ccRunExecutable := Try(Some(ccTargets.value.filter(t => t.isInstanceOf[Executable]).map(t => Executable(t.name)).head)).getOrElse(None),
 
-    cCompiler        := "cc",
-    cFlags     := Map(),
-    cSources   := Map(),
-    cSourceFiles   := { cSources.value },
+    cCompiler    := "cc",
+    cFlags       := Map(),
+    cSources     := Map(),
+    cSourceFiles := { cSources.value },
+    cIncludes    := Map(),
+    cIncludeDirectories := { cIncludes.value },
 
-    cxxCompiler      := "g++",
-    cxxFlags   := Map(),
-    cxxSources := Map(),
+    cxxCompiler    := "g++",
+    cxxFlags       := Map(),
+    cxxSources     := Map(),
     cxxSourceFiles := { cxxSources.value },
+    cxxIncludes    := Map(),
+    cxxIncludeDirectories := { cxxIncludes.value },
 
     ccArchiveCommand := "ar",
     ldFlags := Map(),
@@ -187,6 +205,46 @@ object CcPlugin extends AutoPlugin {
         configuration.value,
         compileTargets,
         cSourceFiles.value,
+        cIncludeDirectories.value,
+        ccSourceObjectMap.value,
+        streams.value.log,
+      )
+    },
+
+    cCompileForExecutables := {
+      cccompile(
+        cCompiler.value,
+        cFlags.value,
+        configuration.value,
+        ccTargets.value.filter(t => t.isInstanceOf[Executable]),
+        cSourceFiles.value,
+        cIncludeDirectories.value,
+        ccSourceObjectMap.value,
+        streams.value.log,
+      )
+    },
+
+    cCompileForLibraries := {
+      cccompile(
+        cCompiler.value,
+        cFlags.value,
+        configuration.value,
+        ccTargets.value.filter(t => t.isInstanceOf[Library]),
+        cSourceFiles.value,
+        cIncludeDirectories.value,
+        ccSourceObjectMap.value,
+        streams.value.log,
+      )
+    },
+
+    cCompileForSharedLibraries := {
+      cccompile(
+        cCompiler.value,
+        cFlags.value,
+        configuration.value,
+        ccTargets.value.filter(t => t.isInstanceOf[SharedLibrary]),
+        cSourceFiles.value,
+        cIncludeDirectories.value,
         ccSourceObjectMap.value,
         streams.value.log,
       )
@@ -209,6 +267,48 @@ object CcPlugin extends AutoPlugin {
       )
     },
 
+    ccLinkOnlyExecutables := {
+      link(
+        cCompiler.value,
+        ccArchiveCommand.value,
+        ldFlags.value,
+        configuration.value,
+        ccTargets.value.filter(t => t.isInstanceOf[Executable]),
+        cSourceFiles.value,
+        ccSourceObjectMap.value,
+        streams.value.log,
+        ccTargetMap.value,
+      )
+    },
+
+    ccLinkOnlyLibraries := {
+      link(
+        cCompiler.value,
+        ccArchiveCommand.value,
+        ldFlags.value,
+        configuration.value,
+        ccTargets.value.filter(t => t.isInstanceOf[Library]),
+        cSourceFiles.value,
+        ccSourceObjectMap.value,
+        streams.value.log,
+        ccTargetMap.value,
+      )
+    },
+
+    ccLinkOnlySharedLibraries := {
+      link(
+        cCompiler.value,
+        ccArchiveCommand.value,
+        ldFlags.value,
+        configuration.value,
+        ccTargets.value.filter(t => t.isInstanceOf[SharedLibrary]),
+        cSourceFiles.value,
+        ccSourceObjectMap.value,
+        streams.value.log,
+        ccTargetMap.value,
+      )
+    },
+
     ccLink := Def.inputTaskDyn {
       val args: Seq[String] = spaceDelimited("<args>").parsed
       Def.taskDyn {
@@ -216,6 +316,10 @@ object CcPlugin extends AutoPlugin {
         ccLinkOnly.toTask(" " + args.mkString(" "))
       }
     }.evaluated,
+
+    ccLinkExecutables := Def.sequential(cCompileForExecutables, ccLinkOnlyExecutables).value,
+    ccLinkLibraries := Def.sequential(cCompileForLibraries, ccLinkOnlyLibraries).value,
+    ccLinkSharedLibraries := Def.sequential(cCompileForSharedLibraries, ccLinkOnlySharedLibraries).value,
 
     ccSourceObjectMap := {
       val csrcs   = (cSourceFiles.value.map{ case (targ, files) => files.map((configuration.value, targ, _)) } toList).flatten
@@ -253,17 +357,17 @@ object CcPlugin extends AutoPlugin {
 
     run := Def.inputTaskDyn {
       val args: Seq[String] = spaceDelimited("<args>").parsed
-      val program: Program = ccRunProgram.value match {
+      val executable: Executable = ccRunExecutable.value match {
         case Some(p) => p
-        case None => throw new Exception("ccRunProgram is not defined.")
+        case None => throw new Exception("ccRunExecutable is not defined.")
       }
 
       Def.taskDyn {
         // Compile and make the executable before run.
-        ccLink.toTask(" " + program.name).value
+        ccLink.toTask(" " + executable.name).value
 
-        val programPath = ccTargetMap.value(program)
-        val process = Process(Seq(programPath.toString) ++ args)
+        val executablePath = ccTargetMap.value(executable)
+        val process = Process(Seq(executablePath.toString) ++ args)
         streams.value.log.info(process.toString)
         process.!
 

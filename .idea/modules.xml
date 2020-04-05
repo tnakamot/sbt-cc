@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/compileCFlags.iml" filepath="$PROJECT_DIR$/.idea/modules/compileCFlags.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/sbt-cxx.iml" filepath="$PROJECT_DIR$/.idea/modules/sbt-cxx.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/sbt-cxx-build.iml" filepath="$PROJECT_DIR$/.idea/modules/sbt-cxx-build.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/simpleC.iml" filepath="$PROJECT_DIR$/.idea/modules/simpleC.iml" />
