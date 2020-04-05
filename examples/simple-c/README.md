@@ -1,6 +1,6 @@
 # simple-c
 
-This is an example sbt project to show the simplest usage of CxxPlugin.
+This is an example sbt project to show the simplest usage of CcPlugin.
 
 This project has two source files (`hello.c` and `hello_util.c`) and one header
 file (`hello_util.h`). The source file `hello.c` calls a function `hello_util()`
@@ -26,12 +26,12 @@ You can provide command line arguments to the executable when launching.
 
 ## Description of build.sbt
 
-For those who are new to CxxPlugin, this section briefly explains how build.sbt
+For those who are new to CcPlugin, this section briefly explains how build.sbt
 can be written for a simple C program project.
 
-### Define a target
+### Define target(s)
 
-CxxPlugin supports multiple targets to generate from one class. Each target
+CcPlugin supports multiple targets to generate from one class. Each target
 has a type and a name. For example, the line below in `build.sbt` defines
 `hello` as a target with `Program` type and the name of "hello".
 
@@ -46,7 +46,7 @@ Below is the list of available target types.
 They are defined as case classes and take one `name` argument. The name will
 be finally used as the file name of the target.
 
-To tell CxxPlugin to generate an executable "hello", set `ccTargets` setting as
+To tell CcPlugin to generate an executable "hello", set `ccTargets` setting as
 shown below:
 
     Compile / ccTargets := ListSet(helloExe),
@@ -54,10 +54,10 @@ shown below:
 `ccTargets` is defined as `ListSet` which allows you to generate multiple targets.
 In this example project, there is only one executable for simplicity.
 
-### Speicfy source files
+### Specify source files
 
 Now you have to specify, which source files to be compiled and linked. Because
-CxxPlugin supports multiple targets, you need to specify which source files
+CcPlugin supports multiple targets, you need to specify which source files
 for each target. In this example, there is only one executable target, so the
 setting is very simple as shown below: 
 
