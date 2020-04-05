@@ -92,14 +92,17 @@ object CcPlugin extends AutoPlugin {
         val compileFlags = flags.getOrElse(targ and source, Try(flags(targ)).getOrElse(Seq()))
         val cmd: Seq[String] = Seq(compiler, "-c", source.toString, "-o", obj.toString) ++ compileFlags
         val p = Process(cmd)
-        logger.info(p.toString)
 
-        // TODO: compile only when the object file is older than the source file.
+        // compile only when the object file is older than the source file.
+        if (obj.lastModified <= source.lastModified) {
+          logger.info(p.toString)
+          Files.createDirectories(obj.toPath.getParent)
+          p.!!
+        } else {
+          logger.debug("Skip comiling " + source.toString)
+        }
 
         // TODO: compile if the dependent header files are newer than the source file.
-
-        Files.createDirectories(obj.toPath.getParent)
-        p.!!
 
         objs ++= List(obj)
       }
@@ -122,19 +125,22 @@ object CcPlugin extends AutoPlugin {
       val ldflags = Try(flags(targ)).getOrElse(Seq())
       val output = targetMap(targ)
 
-      val cmd: Seq[String] = targ match {
-        case Program(_) => Seq(compiler, "-o", output.toString) ++ objs.map(_.toString) ++ ldflags
-        case Library(_) => Seq(archiver, "cr", output.toString) ++ objs.map(_.toString) ++ ldflags
-        case SharedLibrary(_) => Seq(compiler, "-shared", "-o", output.toString) ++ objs.map(_.toString) ++ ldflags
+      // link only when the target is older than any of the object files.
+      if (objs.exists(obj => output.lastModified <= obj.lastModified)) {
+        val cmd: Seq[String] = targ match {
+          case Program(_) => Seq(compiler, "-o", output.toString) ++ objs.map(_.toString) ++ ldflags
+          case Library(_) => Seq(archiver, "cr", output.toString) ++ objs.map(_.toString) ++ ldflags
+          case SharedLibrary(_) => Seq(compiler, "-shared", "-o", output.toString) ++ objs.map(_.toString) ++ ldflags
+        }
+
+        val p = Process(cmd)
+        logger.info(p.toString)
+
+        Files.createDirectories(output.getParentFile.toPath)
+        p.!!
+      } else {
+        logger.debug("Skip making " + output.toString)
       }
-
-      val p = Process(cmd)
-      logger.info(p.toString)
-
-      // TODO: link only when the executable program is older than the object files.
-
-      Files.createDirectories(output.getParentFile.toPath)
-      p.!!
 
       output
     }).toSeq
