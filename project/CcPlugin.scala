@@ -97,7 +97,7 @@ object CcPlugin extends AutoPlugin {
         // TODO: compile if the dependent header files are newer than the source file.
 
         Files.createDirectories(obj.toPath.getParent)
-        p.!
+        p.!!
 
         objs ++= List(obj)
       }
@@ -132,7 +132,7 @@ object CcPlugin extends AutoPlugin {
       // TODO: link only when the executable program is older than the object files.
 
       Files.createDirectories(output.getParentFile.toPath)
-      p.!
+      p.!!
 
       output
     }).toSeq
