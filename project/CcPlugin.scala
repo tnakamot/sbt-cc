@@ -157,117 +157,76 @@ object CcPlugin extends AutoPlugin {
       targs.filter(t => names.contains(t.name))
   }
 
-  override lazy val projectSettings = Seq(
-    Compile / ccTargets := ListSet(),
-    Test    / ccTargets := ListSet(),
+  lazy val baseCcSettings: Seq[Def.Setting[_]] = Seq(
+    ccTargets    := ListSet(),
+    ccRunProgram := Try(Some(ccTargets.value.filter(t => t.isInstanceOf[Program]).map(t => Program(t.name)).last)).getOrElse(None),
 
-    Compile / ccRunProgram := Try(Some((Compile / ccTargets).value.filter(t => t.isInstanceOf[Program]).map(t => Program(t.name)).last)).getOrElse(None),
-    Test    / ccRunProgram := Try(Some((Test    / ccTargets).value.filter(t => t.isInstanceOf[Program]).map(t => Program(t.name)).last)).getOrElse(None),
+    cCompiler        := "cc",
+    cFlags     := Map(),
+    cSources   := Map(),
+    cSourceFiles   := { cSources.value },
 
-    cCompiler   := "cc",
-    cxxCompiler := "g++",
+    cxxCompiler      := "g++",
+    cxxFlags   := Map(),
+    cxxSources := Map(),
+    cxxSourceFiles := { cxxSources.value },
+
     ccArchiveCommand := "ar",
-
-    Compile / cFlags   := Map(),
-    Test    / cFlags   := Map(),
-    Compile / cxxFlags := Map(),
-    Test    / cxxFlags := Map(),
-
-    Compile / cSources   := Map(),
-    Test    / cSources   := Map(),
-    Compile / cxxSources := Map(),
-    Test    / cxxSources := Map(),
-
-    Compile / cSourceFiles   := { (Compile / cSources  ).value },
-    Test    / cSourceFiles   := { (Test    / cSources  ).value },
-    Compile / cxxSourceFiles := { (Compile / cxxSources).value },
-    Test    / cxxSourceFiles := { (Test    / cxxSources).value },
-
-    Compile / ldFlags := Map(),
-    Test    / ldFlags := Map(),
+    ldFlags := Map(),
 
     ccDummyTask := {},
 
     // TODO: define similar tasks for C++ and Test configuration.
-    Compile / cCompile := {
+    cCompile := {
       val targetNames: Seq[String] = spaceDelimited("<args>").parsed
-      val compileTargets = pickTarget((Compile / ccTargets).value, targetNames, streams.value.log)
+      val compileTargets = pickTarget(ccTargets.value, targetNames, streams.value.log)
 
       cccompile(
-        (Compile / cCompiler).value,
-        (Compile / cFlags).value,
-        Compile,
+        cCompiler.value,
+        cFlags.value,
+        configuration.value,
         compileTargets,
-        (Compile / cSourceFiles).value,
+        cSourceFiles.value,
         ccSourceObjectMap.value,
         streams.value.log,
       )
     },
 
-    Compile / ccLinkOnly := {
+    ccLinkOnly := {
       val targetNames: Seq[String] = spaceDelimited("<args>").parsed
-      val linkTargets = pickTarget((Compile / ccTargets).value, targetNames, streams.value.log)
+      val linkTargets = pickTarget(ccTargets.value, targetNames, streams.value.log)
 
       link(
-        (Compile / cCompiler).value,
-        (Compile / ccArchiveCommand).value,
-        (Compile / ldFlags).value,
-        Compile,
+        cCompiler.value,
+        ccArchiveCommand.value,
+        ldFlags.value,
+        configuration.value,
         linkTargets,
-        (Compile / cSourceFiles).value,
+        cSourceFiles.value,
         ccSourceObjectMap.value,
         streams.value.log,
         ccTargetMap.value,
       )
     },
 
-    Compile / ccLink := Def.inputTaskDyn {
+    ccLink := Def.inputTaskDyn {
       val args: Seq[String] = spaceDelimited("<args>").parsed
       Def.taskDyn {
-        (Compile / cCompile).toTask(" " + args.mkString(" ")).value
-        (Compile / ccLinkOnly).toTask(" " + args.mkString(" "))
-      }
-    }.evaluated,
-
-    (Compile / compile) := ((Compile / compile) dependsOn (Compile / ccLink).toTask("")).value,
-
-    (Compile / run)     := Def.inputTaskDyn {
-      val args: Seq[String] = spaceDelimited("<args>").parsed
-      val program: Program = (Compile / ccRunProgram).value match {
-        case Some(p) => p
-        case None => throw new Exception("ccRunProgram is not defined.")
-      }
-
-      Def.taskDyn {
-        // Compile and make the executable before run.
-        (Compile / ccLink).toTask(" " + program.name).value
-
-        val programPath = ccTargetMap.value(program)
-        val process = Process(Seq(programPath.toString) ++ args)
-        streams.value.log.info(process.toString)
-        process.!
-
-        Compile / ccDummyTask
+        cCompile.toTask(" " + args.mkString(" ")).value
+        ccLinkOnly.toTask(" " + args.mkString(" "))
       }
     }.evaluated,
 
     ccSourceObjectMap := {
-      val compileCSources   = ((Compile / cSourceFiles  ).value.map{ case (targ, files) => files.map((Compile, targ, _)) } toList).flatten
-      val compileCxxSources = ((Compile / cxxSourceFiles).value.map{ case (targ, files) => files.map((Compile, targ, _)) } toList).flatten
-      val testCSources      = ((Test    / cSourceFiles  ).value.map{ case (targ, files) => files.map((Test   , targ, _)) } toList).flatten
-      val testCxxSources    = ((Test    / cxxSourceFiles).value.map{ case (targ, files) => files.map((Test   , targ, _)) } toList).flatten
+      val csrcs   = (cSourceFiles.value.map{ case (targ, files) => files.map((configuration.value, targ, _)) } toList).flatten
+      val cxxsrcs = (cxxSourceFiles.value.map{ case (targ, files) => files.map((configuration.value, targ, _)) } toList).flatten
 
-      if (compileCSources.exists(compileCxxSources.contains)) {
-        throw new Exception("(Compile / cSourceFilesDynamic) and (Compile in cxxSourceFilesDynamic) have common source files for the same target.")
-      }
-
-      if (testCSources.exists(testCxxSources.contains)) {
-        throw new Exception("(Test / cSourceFilesDynamic) and (Test in cxxSourceFilesDynamic) have common source files for the same target.")
+      if (csrcs.exists(cxxsrcs.contains)) {
+        throw new Exception("cSourceFiles and cxxSourceFiles have common source files for the same target.")
       }
 
       val cacheDirectory = streams.value.cacheDirectory
-      val ret = Seq(compileCSources, compileCxxSources, testCSources, testCxxSources)
-        .flatten.map { case (config, targ, src) =>
+      val ret = (csrcs ++ cxxsrcs).map { case (config, targ, src) =>
 
         val obj: File = if (isDescendent(baseDirectory.value, src)) {
           cacheDirectory / config.name / targ.name / (baseDirectory.value.toPath.relativize(src.toPath).toString + ".o")
@@ -287,9 +246,31 @@ object CcPlugin extends AutoPlugin {
 
     ccTargetMap := {
       val cacheDirectory = streams.value.cacheDirectory
-      (Compile / ccTargets).value.map(t => t -> (cacheDirectory / Compile.name / t.getClass.getName / t.name)).toMap ++
-        (Test  / ccTargets).value.map(t => t -> (cacheDirectory / Test.name    / t.getClass.getName / t.name)).toMap
+      ccTargets.value.map(t => t -> (cacheDirectory / configuration.value.name / t.getClass.getName / t.name)).toMap
     },
+
+    compile := (compile dependsOn ccLink.toTask("")).value,
+
+    run := Def.inputTaskDyn {
+      val args: Seq[String] = spaceDelimited("<args>").parsed
+      val program: Program = ccRunProgram.value match {
+        case Some(p) => p
+        case None => throw new Exception("ccRunProgram is not defined.")
+      }
+
+      Def.taskDyn {
+        // Compile and make the executable before run.
+        ccLink.toTask(" " + program.name).value
+
+        val programPath = ccTargetMap.value(program)
+        val process = Process(Seq(programPath.toString) ++ args)
+        streams.value.log.info(process.toString)
+        process.!
+
+        ccDummyTask
+      }
+    }.evaluated,
   )
 
+  override lazy val projectSettings = inConfig(Compile)(baseCcSettings) ++ inConfig(Test)(baseCcSettings)
 }
