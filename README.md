@@ -1,8 +1,27 @@
-# sbt-cc
+# sbt CcPlugin (sbt-cc)
 
 This is an sbt plugin to compile C and C++ source files.
 
 ## Usage
+
+### Install
+
+This plugin has not been published to any of public maven or ivy2 repositories yet.
+To use this plugin, you need to download the source tree, compile and install it
+in your local repository. If you have not downloaded the source tree, check it out
+with git command.
+
+    $ git clone https://github.com/tnakamot/sbt-cc.git
+   
+Then, compile it and install with the commands below.
+
+    $ cd sbt-cc
+    $ sbt compile publishLocal
+
+The last command `publishLocal` normally installs this plugin into your local
+ivy2 repository which is typically located at `~/.ivy2/local`.
+
+### Use this plugin in your sbt project
 
 TODO: explain how to enable this plugin
 
