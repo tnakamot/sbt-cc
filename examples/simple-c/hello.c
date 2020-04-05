@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+#include "hello_util.h"
+
 int main(int argc, char *argv[]) {
   printf("Hello world!\n");
 
@@ -11,4 +13,6 @@ int main(int argc, char *argv[]) {
   } else {
     printf("No argument was specified\n");
   }
+
+  hello_util();
 }

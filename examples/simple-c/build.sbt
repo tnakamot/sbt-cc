@@ -1,21 +1,20 @@
 import scala.collection.immutable.ListSet
 
-ThisBuild / name        := "simple-c"
-ThisBuild / version     := "0.1"
-ThisBuild /scalaVersion := "2.13.1"
+ThisBuild / name         := "simple-c"
+ThisBuild / version      := "0.1"
+ThisBuild / scalaVersion := "2.13.1"
 
 val hello = Program("hello")
-val hello_a = Library("hello.a")
-val hello_so = SharedLibrary("hello.so")
 
 lazy val simpleC = (project in file("."))
   .enablePlugins(CcPlugin)
   .settings(
-    Compile / ccTargets := ListSet(hello, hello_a, hello_so),
-    Compile / cSources := Map(
-      hello    -> Seq( baseDirectory.value / "hello.c" ),
-      hello_a  -> Seq( baseDirectory.value / "hello.c" ),
-      hello_so -> Seq( baseDirectory.value / "hello.c" )
+    Compile / ccTargets := ListSet(hello),
+    Compile / cSources  := Map(
+      hello -> Seq(
+        baseDirectory.value / "hello.c",
+        baseDirectory.value / "hello_util.c"
+      )
     ),
   )
 
