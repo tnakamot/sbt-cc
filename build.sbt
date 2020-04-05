@@ -8,3 +8,6 @@ Global / onChangedBuildSource := IgnoreSourceChanges
 lazy val simpleC    = project in file("examples/simple-c")
 lazy val multiExecs = project in file("examples/multi-execs")
 
+
+
+// TODO: rename the repository
