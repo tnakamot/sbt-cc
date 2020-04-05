@@ -1,4 +1,5 @@
 import scala.collection.immutable.ListSet
+import sbtcc._
 
 ThisBuild / name         := "simple-c"
 ThisBuild / version      := "0.1"

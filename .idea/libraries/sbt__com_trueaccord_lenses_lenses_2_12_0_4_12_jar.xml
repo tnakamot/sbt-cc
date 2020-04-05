@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="sbt: com.trueaccord.lenses:lenses_2.12:0.4.12:jar">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.cache/coursier/v1/https/repo1.maven.org/maven2/com/trueaccord/lenses/lenses_2.12/0.4.12/lenses_2.12-0.4.12.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

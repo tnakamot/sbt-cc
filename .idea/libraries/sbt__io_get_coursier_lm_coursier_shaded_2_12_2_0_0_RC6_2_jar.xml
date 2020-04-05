@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="sbt: io.get-coursier:lm-coursier-shaded_2.12:2.0.0-RC6-2:jar">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.cache/coursier/v1/https/repo1.maven.org/maven2/io/get-coursier/lm-coursier-shaded_2.12/2.0.0-RC6-2/lm-coursier-shaded_2.12-2.0.0-RC6-2.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

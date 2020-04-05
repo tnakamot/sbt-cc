@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="sbt: com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4:jar">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.cache/coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/shaded-scalajson_2.12/1.0.0-M4/shaded-scalajson_2.12-1.0.0-M4.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

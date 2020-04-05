@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="sbt: org.scala-sbt:zinc-core_2.12:1.3.5:jar">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.cache/coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/zinc-core_2.12/1.3.5/zinc-core_2.12-1.3.5.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

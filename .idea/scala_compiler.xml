@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ScalaCompilerConfiguration">
-    <profile name="sbt 1" modules="compileCFlags,multi-execs.compileCFlags,multiExecs,sbt-cc,sbt-cxx,sbt-cxx_4695,simple-cxx.simpleCxx,simpleC,simpleCxx" />
+    <profile name="sbt 1" modules="compileCFlags,multi-execs.compileCFlags,multiExecs,sbt-cxx,sbt-cxx_4695,simple-cxx.simpleCxx,simpleC,simpleCxx" />
+    <profile name="sbt 2" modules="sbt-cc">
+      <option name="deprecationWarnings" value="true" />
+    </profile>
   </component>
 </project>

@@ -1,4 +1,5 @@
 import scala.collection.immutable.ListSet
+import sbtcc._
 
 ThisBuild / name         := "multi-execs"
 ThisBuild / version      := "0.1"

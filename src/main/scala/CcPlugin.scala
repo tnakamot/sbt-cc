@@ -1,13 +1,15 @@
-import java.nio.file.Files
+package sbtcc
 
-import sbt.Keys._
-import sbt._
-import complete.DefaultParsers._
-import sbt.internal.util.ManagedLogger
+import java.io.File
+import java.nio.file.Files
 
 import scala.collection.immutable.ListSet
 import scala.sys.process._
 import scala.util.Try
+import sbt.Keys._
+import sbt._
+import complete.DefaultParsers._
+import sbt.internal.util.ManagedLogger
 
 trait Target{
   val name: String
