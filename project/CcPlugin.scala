@@ -43,7 +43,7 @@ object CcPlugin extends AutoPlugin {
     lazy val ccTargets         = settingKey[ListSet[Target]]("Targets")
 
     lazy val cCompiler    = settingKey[String]("Command to compile C source files.")
-    lazy val cFlags       = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the C compiler.") // We may want to use different flags for each source file.
+    lazy val cFlags       = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the C compiler.")
     lazy val cSources     = settingKey[Map[Target,Seq[File]]]("Path of C source files.")
     lazy val cSourceFiles = taskKey[Map[Target,Seq[File]]]("Path of C source files (dynamically defined).")
 
