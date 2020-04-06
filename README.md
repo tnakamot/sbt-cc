@@ -56,7 +56,7 @@ to go through all the examples below in this order:
 * [simple-c](examples/simple-c/README.md): the simplest C project
 * [multi-execs](examples/multi-execs/README.md): multiple executable targets in one project
 * [simple-cxx](examples/simple-cxx/README.md): a simple C++ project
-* [mix-cxx-and-c](exmaple/mix-cxx-and-c/README.md): an example to mix C and C++. Also shows how to switch the default commands for compiling, linking and archiving.
+* [mix-cxx-and-c](examples/mix-cxx-and-c/README.md): an example to mix C and C++. Also shows how to switch the default commands for compiling, linking and archiving.
 
 ## TODO
 
