@@ -23,11 +23,26 @@ ivy2 repository which is typically located at `~/.ivy2/local`.
 
 ### Use this plugin in your sbt project
 
-TODO: explain how to enable this plugin
+To use this plugin in your sbt project, add the following line to `project/plugins.sbt`.
 
-### C/C++ compiler and linker
+    addSbtPlugin("com.github.tnakamot" % "sbt-cc" % "0.1")
 
-TODO: explain which version has tested
+If `project/plugins.sbt` does not exist in your project, just make it with the above
+one line. Then, make sure that you import `sbtcc` module in `build.sbt` as shown 
+below:
+
+    import sbtcc._
+
+Finally, call `enablePlugins(CcPlugin)` for your project as shown in below. 
+
+    lazy val testProject = (project in file("."))
+      .enablePlugins(CcPlugin)
+      .settings(
+        ... // settings for CcPlugin
+       )
+
+All the settings for CcPlugin go inside `.settings( ... )`. See the examples below
+to see how you can make settings.
 
 ## Examples
 
