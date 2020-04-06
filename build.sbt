@@ -14,9 +14,3 @@ lazy val root = (project in file("."))
     sbtVersion   := "1.3.9"
   )
 
-// List of example projects.
-/*
-lazy val simpleC    = project in file("examples/simple-c")
-lazy val multiExecs = project in file("examples/multi-execs")
-lazy val simpleCxx  = project in file("examples/simple-cxx")
-*/
