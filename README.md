@@ -25,6 +25,10 @@ ivy2 repository which is typically located at `~/.ivy2/local`.
 
 TODO: explain how to enable this plugin
 
+### C/C++ compiler and linker
+
+TODO: explain which version has tested
+
 ## Examples
 
 There are several example sbt projects under `example/` directory. README.md in each
@@ -37,6 +41,7 @@ to go through all the examples below in this order:
 * [simple-c](examples/simple-c/README.md): the simplest C project
 * [multi-execs](examples/multi-execs/README.md): multiple executable targets in one project
 * [simple-cxx](examples/simple-cxx/README.md): a simple C++ project
+* [mix-cxx-and-c](exmaple/mix-cxx-and-c/README.md): an example to mix C and C++. Also shows how to switch the default commands for compiling, linking and archiving.
 
 ## TODO
 
@@ -45,5 +50,4 @@ to go through all the examples below in this order:
 * make an example of how to dynamically add source files
 * make an example of static library and shared library
 * make an example of how to package the executables and libraries using Universal plugin.
-* make an example of mixture of C and C++
 * make an example of test
