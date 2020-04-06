@@ -69,6 +69,7 @@ object CcPlugin extends AutoPlugin {
     lazy val cxxCompileForSharedLibraries = taskKey[Seq[File]]("Task to compile C++ source files for all executables.")
 
     lazy val ccArchiveCommand = settingKey[String]("Command to archive object files.")
+    lazy val ccLinkerCommand = settingKey[String]("Command to link object files.")
 
     lazy val ldFlags = settingKey[Map[Target,Seq[String]]]("Flags to be passed to the compiler when linking.")
     lazy val ccLinkOnly    = inputKey[Seq[File]]("Input task to link object files and generate executables, static libraries and shared libraries. Does not compile dependent C source files.")
@@ -96,6 +97,10 @@ object CcPlugin extends AutoPlugin {
     }
 
     file.toPath.startsWith(directory.toPath.toAbsolutePath)
+  }
+
+  def combineMaps[T,S](map1: Map[T,Seq[S]], map2: Map[T,Seq[S]]): Map[T,Seq[S]] = {
+    (map1.toSeq ++ map2.toSeq).groupBy(_._1).mapValues(_.map(_._2).toList.flatten)
   }
 
   def cccompile(compiler: String,
@@ -198,6 +203,7 @@ object CcPlugin extends AutoPlugin {
     cxxIncludeDirectories := { cxxIncludes.value },
 
     ccArchiveCommand := "ar",
+    ccLinkerCommand  := "g++",
     ldFlags := Map(),
 
     ccDummyTask := {},
@@ -317,12 +323,12 @@ object CcPlugin extends AutoPlugin {
       val linkTargets = pickTarget(ccTargets.value, targetNames, streams.value.log)
 
       link(
-        cxxCompiler.value,
+        ccLinkerCommand.value,
         ccArchiveCommand.value,
         ldFlags.value,
         configuration.value,
         linkTargets,
-        cSourceFiles.value ++ cxxSourceFiles.value,
+        combineMaps(cSourceFiles.value, cxxSourceFiles.value),
         ccSourceObjectMap.value,
         streams.value.log,
         ccTargetMap.value,
@@ -331,12 +337,12 @@ object CcPlugin extends AutoPlugin {
 
     ccLinkOnlyExecutables := {
       link(
-        cxxCompiler.value,
+        ccLinkerCommand.value,
         ccArchiveCommand.value,
         ldFlags.value,
         configuration.value,
         ccTargets.value.filter(t => t.isInstanceOf[Executable]),
-        cSourceFiles.value ++ cxxSourceFiles.value,
+        combineMaps(cSourceFiles.value, cxxSourceFiles.value),
         ccSourceObjectMap.value,
         streams.value.log,
         ccTargetMap.value,
@@ -345,12 +351,12 @@ object CcPlugin extends AutoPlugin {
 
     ccLinkOnlyLibraries := {
       link(
-        cxxCompiler.value,
+        ccLinkerCommand.value,
         ccArchiveCommand.value,
         ldFlags.value,
         configuration.value,
         ccTargets.value.filter(t => t.isInstanceOf[Library]),
-        cSourceFiles.value ++ cxxSourceFiles.value,
+        combineMaps(cSourceFiles.value, cxxSourceFiles.value),
         ccSourceObjectMap.value,
         streams.value.log,
         ccTargetMap.value,
@@ -359,12 +365,12 @@ object CcPlugin extends AutoPlugin {
 
     ccLinkOnlySharedLibraries := {
       link(
-        cxxCompiler.value,
+        ccLinkerCommand.value,
         ccArchiveCommand.value,
         ldFlags.value,
         configuration.value,
         ccTargets.value.filter(t => t.isInstanceOf[SharedLibrary]),
-        cSourceFiles.value ++ cxxSourceFiles.value,
+        combineMaps(cSourceFiles.value, cxxSourceFiles.value),
         ccSourceObjectMap.value,
         streams.value.log,
         ccTargetMap.value,
