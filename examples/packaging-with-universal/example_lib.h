@@ -1,0 +1,1 @@
+void exmaple_lib_function();
