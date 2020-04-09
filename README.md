@@ -58,10 +58,9 @@ to go through all the examples below in this order:
 * [simple-cxx](examples/simple-cxx/README.md): a simple C++ project
 * [mix-cxx-and-c](examples/mix-cxx-and-c/README.md): an example to mix C and C++. Also shows how to switch the default commands for compiling, linking and archiving.
 * [external-headers](examples/external-headers/README.md): an example to include additional header search paths and source files.
+* [packaging-with-universal](examples/packaging-with-universal/README.md): an example to pass the targets of CcPlugin to other tasks and package them.
 
 ## TODO
 
 * publish this plugin
-* make an example of static library and shared library
-* make an example of how to package the executables and libraries using Universal plugin.
 * make an example of test
