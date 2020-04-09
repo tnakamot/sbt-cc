@@ -4,31 +4,13 @@ This is an sbt plugin to compile C and C++ source files.
 
 ## Usage
 
-### Install
+To use this plugin in your sbt project, add the following lines to `project/plugins.sbt`.
 
-This plugin has not been published to any of public maven or ivy2 repositories yet.
-To use this plugin, you need to download the source tree, compile and install it
-in your local repository. If you have not downloaded the source tree, check it out
-with git command.
-
-    $ git clone https://github.com/tnakamot/sbt-cc.git
-   
-Then, compile it and install with the commands below.
-
-    $ cd sbt-cc
-    $ sbt compile publishLocal
-
-The last command `publishLocal` normally installs this plugin into your local
-ivy2 repository which is typically located at `~/.ivy2/local`.
-
-### Use this plugin in your sbt project
-
-To use this plugin in your sbt project, add the following line to `project/plugins.sbt`.
-
-    addSbtPlugin("com.github.tnakamot" % "sbt-cc" % "0.1")
+    resolvers += Resolver.bintrayIvyRepo("nyakamoto", "sbt-plugins")
+    addSbtPlugin("com.github.tnakamot" % "sbt-cc" % "0.0.3")
 
 If `project/plugins.sbt` does not exist in your project, just make it with the above
-one line. Then, make sure that you import `sbtcc` module in `build.sbt` as shown 
+two lines. Then, make sure that you import `sbtcc` module in `build.sbt` as shown 
 below:
 
     import sbtcc._
@@ -60,7 +42,10 @@ to go through all the examples below in this order:
 * [external-headers](examples/external-headers/README.md): an example to include additional header search paths and source files.
 * [packaging-with-universal](examples/packaging-with-universal/README.md): an example to pass the targets of CcPlugin to other tasks and package them.
 
+## For developers
+
+For those who develops and maintians this plugin, there is [developer's note](DEVELOPER.md). It includes the instruction about how to release a new version of this plugin.
+
 ## TODO
 
-* publish this plugin
 * make an example of test
