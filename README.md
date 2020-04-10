@@ -4,13 +4,12 @@ This is an sbt plugin to compile C and C++ source files.
 
 ## Usage
 
-To use this plugin in your sbt project, add the following lines to `project/plugins.sbt`.
+To use this plugin in your sbt project, add the following line to `project/plugins.sbt`.
 
-    resolvers += Resolver.bintrayIvyRepo("nyakamoto", "sbt-plugins")
     addSbtPlugin("com.github.tnakamot" % "sbt-cc" % "0.0.3")
 
 If `project/plugins.sbt` does not exist in your project, just make it with the above
-two lines. Then, make sure that you import `sbtcc` module in `build.sbt` as shown 
+one line. Then, make sure that you import `sbtcc` module in `build.sbt` as shown 
 below:
 
     import sbtcc._
