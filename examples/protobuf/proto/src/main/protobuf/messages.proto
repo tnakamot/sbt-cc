@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+option java_package = "com.github.tnakamot";
+option java_outer_classname = "Messages";
+
+message Command {
+    string name   = 1;
+    int32  run_id = 2;
+}
