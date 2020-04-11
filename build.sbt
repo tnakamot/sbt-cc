@@ -1,4 +1,4 @@
-Global / onChangedBuildSource := IgnoreSourceChanges
+Global / onChangedBuildSource := ReloadOnSourceChanges
 
 lazy val root = (project in file("."))
   .enablePlugins(GitVersioning)
