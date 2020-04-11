@@ -1,5 +1,17 @@
 # Developer Notes
 
+## Package repository
+
+The binary package of this plugin is primarily uploaded to the author's bintray
+repository.
+ 
+https://bintray.com/nyakamoto/sbt-plugins/sbt-cc
+
+For users to use this plugin without manually specifying the above repository,
+this package is linked to this community repository.
+
+https://bintray.com/sbt/sbt-plugin-releases
+
 ## How to release
 
 This sbt project uses [sbt-git](https://github.com/sbt/sbt-git) to determine the version of this project.
