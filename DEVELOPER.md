@@ -2,13 +2,13 @@
 
 ## Package repository
 
-The binary package of this plugin is primarily uploaded to the author's bintray
+The binary packages of this plugin are primarily hosted in the author's Bintray
 repository.
  
 https://bintray.com/nyakamoto/sbt-plugins/sbt-cc
 
-For users to use this plugin without manually specifying the above repository,
-this package is linked to this community repository.
+For users who want to use this plugin without manually specifying the above
+repository, the packages are linked to this community repository.
 
 https://bintray.com/sbt/sbt-plugin-releases
 
@@ -51,7 +51,7 @@ This command installs this plugin into `~/.ivy2/local`.
 
 ### 5. Create a repository on Bintray
 
-(skip this step if you already have "sbt-plugins" repository on Bintray.)
+(Skip this step if you already have "sbt-plugins" repository on Bintray.)
 
 This project uses [sbt-bintray](https://github.com/sbt/sbt-bintray) plugin to publish
 this CcPlugin to [Bintray](https://bintray.com/). If you have not created your account
@@ -65,10 +65,10 @@ When you create the repository, make sure that the name is "sbt-plugins" and typ
 
 ### 6. Configure your Bintray credentials
 
-(skip this step if you have already configured your Bintray credentials)
+(Skip this step if you have already configured your Bintray credentials.)
 
 If have not configured your Bintray credentials in your computer, first you need
-to get API Key. Follow the steps below to get the API Key.  
+to get your API Key. Follow the steps below to do so.  
 
 * Go to [your Bintray profile page](https://bintray.com/profile/edit).
 * Click "API Key" in the left menu.
@@ -84,7 +84,7 @@ the following contents
     user = (your bintray user name)
     password = (your API Key)
     
-For password field, provide your API Key, not the password you enter when you login Bintray.
+Set your API Key to "password" field, not the password you enter when you login Bintray.
 
 Finally, in this project directory, run
    
@@ -109,6 +109,13 @@ and
 
      https://dl.bintray.com/(your_account_name)/sbt-plugins/
    
+### 8. Push git tag to github
+      
+Do not forget to push the newly created tag to github.
+  
+    $ git push  
+    $ git push --tags
+
 ## References
 
 * [Bintray For Plugins](https://www.scala-sbt.org/1.x/docs/Bintray-For-Plugins.html)
