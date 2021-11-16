@@ -103,6 +103,8 @@ object CcPlugin extends AutoPlugin {
     lazy val ccRunExecutable = settingKey[Option[Executable]]("Executable to launch when 'run' command is issued.")
     lazy val runExecutable   = inputKey[Unit]("Task to run an executable.")
 
+    lazy val ccOutputDirectory = taskKey[File]("Directory where build files are stored.")
+
     lazy val ccDummyTask = taskKey[Unit]("Dummy task which does nothing.")
   }
   import autoImport._
@@ -119,38 +121,45 @@ object CcPlugin extends AutoPlugin {
     (map1.toSeq ++ map2.toSeq).groupBy(_._1).mapValues(_.map(_._2).toList.flatten)
   }
 
-  def cccompile(compiler: String,
+  def cccompile(fileType: String,
+              compiler: String,
               flags: Map[Target,Seq[String]],
               config: Configuration,
               targs : Set[Target],
               sources: Map[Target,Seq[File]],
               includes: Map[Target,Seq[File]],
               srcObjMap: Map[(Configuration, Target, File), File],
+              outputDir: File,
               logger: ManagedLogger
              ): Seq[File] = {
-    var objs: List[File] = List()
-    for (targ <- targs) {
-      for (source <- sources.getOrElse(targ, Seq())) {
+    val objCmds = targs.flatMap { targ =>
+      sources.getOrElse(targ, Seq()).flatMap { source =>
         val obj = srcObjMap((config, targ, source))
         val compileFlags = flags.getOrElse(targ and source, Try(flags(targ)).getOrElse(Seq()))
         val includeDirs  = includes.getOrElse(targ and source, Try(includes(targ)).getOrElse(Seq()))
         val cmd: Seq[String] = Seq(compiler, "-c", source.toString, "-o", obj.toString) ++ includeDirs.map(d => "-I" + d.toString) ++ compileFlags
-        val p = Process(cmd)
-
         // compile only when the object file is older than the source file.
         if (obj.lastModified <= source.lastModified) {
-          logger.info(p.toString)
-          Files.createDirectories(obj.toPath.getParent)
-          p.!!
+          Some((obj, cmd))
         } else {
           // TODO: compile if the dependent header files are newer than the object file.
           logger.debug("Skip compiling " + source.toString)
+          None
         }
-
-        objs ++= List(obj)
       }
     }
-    objs
+
+    if (objCmds.size > 0) {
+      logger.info(s"compiling ${objCmds.size} ${fileType} sources to ${outputDir} ...")
+    }
+    val objs = objCmds.map { case (obj, cmd) =>
+      val p = Process(cmd)
+      logger.debug(p.toString)
+      Files.createDirectories(obj.toPath.getParent)
+      p.!!
+      obj
+    }
+    objs.toSeq
   }
 
   def link(compiler: String,
@@ -162,8 +171,9 @@ object CcPlugin extends AutoPlugin {
            srcObjMap: Map[(Configuration, Target, File), File],
            logger: ManagedLogger,
            targetMap: Map[Target, File],
+           outputDir: File,
           ): Seq[File] = {
-    targs.map( targ => {
+    val outputCmds = targs.flatMap { targ =>
       val objs = sources.getOrElse(targ, Seq()).map(srcObjMap(config, targ, _))
       val ldflags = Try(flags(targ)).getOrElse(Seq())
       val output = targetMap(targ)
@@ -175,18 +185,24 @@ object CcPlugin extends AutoPlugin {
           case Library(_) => Seq(archiver, "cr", output.toString) ++ objs.map(_.toString) ++ ldflags
           case SharedLibrary(_) => Seq(compiler, "-shared", "-o", output.toString) ++ objs.map(_.toString) ++ ldflags
         }
-
-        val p = Process(cmd)
-        logger.info(p.toString)
-
-        Files.createDirectories(output.getParentFile.toPath)
-        p.!!
+        Option((output, cmd))
       } else {
-        logger.debug("Skip making " + output.toString)
+        logger.debug("Skip linking " + output.toString)
+        None
       }
+    }
 
+    if (outputCmds.size > 0) {
+      logger.info(s"linking ${outputCmds.size} output files to ${outputDir} ...")
+    }
+    val outputs = outputCmds.map { case (output, cmd) =>
+      val p = Process(cmd)
+      logger.debug(p.toString)
+      Files.createDirectories(output.getParentFile.toPath)
+      p.!!
       output
-    }).toSeq
+    }
+    outputs.toSeq
   }
 
   def pickTarget(targs: Set[Target], names: Seq[String], logger: ManagedLogger): Set[Target] = {
@@ -229,6 +245,7 @@ object CcPlugin extends AutoPlugin {
       val compileTargets = pickTarget(ccTargets.value, targetNames, streams.value.log)
 
       cccompile(
+        "C",
         cCompiler.value,
         cFlags.value,
         configuration.value,
@@ -236,12 +253,14 @@ object CcPlugin extends AutoPlugin {
         cSourceFiles.value,
         cIncludeDirectories.value,
         ccSourceObjectMap.value,
+        ccOutputDirectory.value,
         streams.value.log,
       )
     },
 
     cCompileForExecutables := {
       cccompile(
+        "C",
         cCompiler.value,
         cFlags.value,
         configuration.value,
@@ -249,12 +268,14 @@ object CcPlugin extends AutoPlugin {
         cSourceFiles.value,
         cIncludeDirectories.value,
         ccSourceObjectMap.value,
+        ccOutputDirectory.value,
         streams.value.log,
       )
     },
 
     cCompileForLibraries := {
       cccompile(
+        "C",
         cCompiler.value,
         cFlags.value,
         configuration.value,
@@ -262,12 +283,14 @@ object CcPlugin extends AutoPlugin {
         cSourceFiles.value,
         cIncludeDirectories.value,
         ccSourceObjectMap.value,
+        ccOutputDirectory.value,
         streams.value.log,
       )
     },
 
     cCompileForSharedLibraries := {
       cccompile(
+        "C",
         cCompiler.value,
         cFlags.value,
         configuration.value,
@@ -275,6 +298,7 @@ object CcPlugin extends AutoPlugin {
         cSourceFiles.value,
         cIncludeDirectories.value,
         ccSourceObjectMap.value,
+        ccOutputDirectory.value,
         streams.value.log,
       )
     },
@@ -284,6 +308,7 @@ object CcPlugin extends AutoPlugin {
       val compileTargets = pickTarget(ccTargets.value, targetNames, streams.value.log)
 
       cccompile(
+        "C++",
         cxxCompiler.value,
         cxxFlags.value,
         configuration.value,
@@ -291,12 +316,14 @@ object CcPlugin extends AutoPlugin {
         cxxSourceFiles.value,
         cxxIncludeDirectories.value,
         ccSourceObjectMap.value,
+        ccOutputDirectory.value,
         streams.value.log,
       )
     },
 
     cxxCompileForExecutables := {
       cccompile(
+        "C++",
         cxxCompiler.value,
         cxxFlags.value,
         configuration.value,
@@ -304,12 +331,14 @@ object CcPlugin extends AutoPlugin {
         cxxSourceFiles.value,
         cxxIncludeDirectories.value,
         ccSourceObjectMap.value,
+        ccOutputDirectory.value,
         streams.value.log,
       )
     },
 
     cxxCompileForLibraries := {
       cccompile(
+        "C++",
         cxxCompiler.value,
         cxxFlags.value,
         configuration.value,
@@ -317,12 +346,14 @@ object CcPlugin extends AutoPlugin {
         cxxSourceFiles.value,
         cxxIncludeDirectories.value,
         ccSourceObjectMap.value,
+        ccOutputDirectory.value,
         streams.value.log,
       )
     },
 
     cxxCompileForSharedLibraries := {
       cccompile(
+        "C++",
         cxxCompiler.value,
         cxxFlags.value,
         configuration.value,
@@ -330,6 +361,7 @@ object CcPlugin extends AutoPlugin {
         cxxSourceFiles.value,
         cxxIncludeDirectories.value,
         ccSourceObjectMap.value,
+        ccOutputDirectory.value,
         streams.value.log,
       )
     },
@@ -348,6 +380,7 @@ object CcPlugin extends AutoPlugin {
         ccSourceObjectMap.value,
         streams.value.log,
         ccTargetMap.value,
+        ccOutputDirectory.value,
       )
     },
 
@@ -362,6 +395,7 @@ object CcPlugin extends AutoPlugin {
         ccSourceObjectMap.value,
         streams.value.log,
         ccTargetMap.value,
+        ccOutputDirectory.value,
       )
     },
 
@@ -376,6 +410,7 @@ object CcPlugin extends AutoPlugin {
         ccSourceObjectMap.value,
         streams.value.log,
         ccTargetMap.value,
+        ccOutputDirectory.value,
       )
     },
 
@@ -390,6 +425,7 @@ object CcPlugin extends AutoPlugin {
         ccSourceObjectMap.value,
         streams.value.log,
         ccTargetMap.value,
+        ccOutputDirectory.value,
       )
     },
 
@@ -406,6 +442,8 @@ object CcPlugin extends AutoPlugin {
     ccLinkLibraries       := Def.sequential(cCompileForLibraries      , cxxCompileForLibraries      , ccLinkOnlyLibraries      ).value,
     ccLinkSharedLibraries := Def.sequential(cCompileForSharedLibraries, cxxCompileForSharedLibraries, ccLinkOnlySharedLibraries).value,
 
+    ccOutputDirectory := streams.value.cacheDirectory / configuration.value.name,
+
     ccSourceObjectMap := {
       val csrcs   = (cSourceFiles.value.map{ case (targ, files) => files.map((configuration.value, targ, _)) } toList).flatten
       val cxxsrcs = (cxxSourceFiles.value.map{ case (targ, files) => files.map((configuration.value, targ, _)) } toList).flatten
@@ -414,14 +452,13 @@ object CcPlugin extends AutoPlugin {
         throw new Exception("cSourceFiles and cxxSourceFiles have common source files for the same target.")
       }
 
-      val cacheDirectory = streams.value.cacheDirectory
+      val outDir = ccOutputDirectory.value
       val ret = (csrcs ++ cxxsrcs).map { case (config, targ, src) =>
-
         val obj: File = if (isDescendent(baseDirectory.value, src)) {
-          cacheDirectory / config.name / targ.name / (baseDirectory.value.toPath.relativize(src.toPath).toString + ".o")
+          outDir / targ.name / (baseDirectory.value.toPath.relativize(src.toPath).toString + ".o")
         } else {
           val dirHash = f"${src.getParent.hashCode}%08x"
-          cacheDirectory / config.name / targ.name / ("_" + dirHash) / (src.getName + ".o")
+          outDir / targ.name / ("_" + dirHash) / (src.getName + ".o")
 
           // TODO: By any chance the generated file name may conflict with another.
           //       If conflict, change the dirHash to another or raise an Exception.
@@ -434,8 +471,8 @@ object CcPlugin extends AutoPlugin {
     },
 
     ccTargetMap := {
-      val cacheDirectory = streams.value.cacheDirectory
-      ccTargets.value.map(t => t -> (cacheDirectory / configuration.value.name / t.getClass.getName / t.name)).toMap
+      val outDir = ccOutputDirectory.value
+      ccTargets.value.map(t => t -> (outDir / t.getClass.getName / t.name)).toMap
     },
 
     compile := (compile dependsOn ccLink.toTask("")).value,
